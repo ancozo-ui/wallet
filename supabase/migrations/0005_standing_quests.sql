@@ -55,17 +55,15 @@ $$ declare q quests; v_base int; v_total int; v_label text;
    end $$;
 
 -- 마감(한국시간 자정) 지난 도전 초기화 — 우리 가족 것만
+-- 0001 에서 이미 void 로 만들어져 있어 반환형을 바꿀 수 없다(그대로 void 유지).
 create or replace function expire_quests()
-  returns integer language plpgsql security definer set search_path = public as
-$$ declare n integer;
-   begin
+  returns void language plpgsql security definer set search_path = public as
+$$ begin
      update quests set status = 'open', deadline = null, submission = null
       where family_id = my_family_id()
         and status = 'prog'
         and deadline is not null
         and deadline < kst_today();
-     get diagnostics n = row_count;
-     return n;
    end $$;
 
 grant execute on function expire_quests() to authenticated;
