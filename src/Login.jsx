@@ -1,6 +1,14 @@
 import { useState } from 'react'
 import { supabase } from './supabase'
 
+function krErr(msg = '') {
+  const m = msg.toLowerCase()
+  if (m.includes('email not confirmed')) return '이메일 확인이 필요해요. 관리자(부모)가 Supabase에서 확인 처리해야 해요.'
+  if (m.includes('invalid login credentials')) return '이메일 또는 비밀번호가 맞지 않아요.'
+  if (m.includes('user already registered')) return '이미 가입된 이메일이에요. 로그인해 주세요.'
+  return msg || '문제가 생겼어요'
+}
+
 export default function Login({ toast }) {
   const [mode, setMode] = useState('parent') // parent | child
   const [signup, setSignup] = useState(false)
@@ -21,7 +29,7 @@ export default function Login({ toast }) {
         const { error } = await supabase.auth.signInWithPassword({ email, password: pw })
         if (error) throw error
       }
-    } catch (e) { toast('⚠️ ' + (e.message || '로그인 실패')) }
+    } catch (e) { toast('⚠️ ' + krErr(e.message)) }
     setBusy(false)
   }
 
