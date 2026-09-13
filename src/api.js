@@ -30,16 +30,17 @@ export async function loadParent() {
   return { family: family.data, kids: kids.data, tx: tx.data, quests: quests.data, requests: requests.data }
 }
 export async function loadChild(memberId) {
-  const [family, me, tx, quests, fines, sibs] = await Promise.all([
+  const [family, me, tx, quests, fines, mypend, sibs] = await Promise.all([
     supabase.from('families').select('*').limit(1).maybeSingle(),
     supabase.from('members').select('*').eq('id', memberId).single(),
     supabase.from('transactions').select('*').eq('member_id', memberId).order('created_at', { ascending: false }),
     supabase.from('quests').select('*').eq('member_id', memberId).order('created_at', { ascending: false }),
     supabase.from('requests').select('*').eq('kind', 'fine').eq('status', 'pending'),
+    supabase.from('requests').select('*').eq('member_id', memberId).eq('status', 'pending').in('kind', ['spend', 'transfer']),
     supabase.rpc('list_siblings'),
   ])
-  for (const r of [family, me, tx, quests, fines, sibs]) if (r.error) throw r.error
-  return { family: family.data, me: me.data, tx: tx.data, quests: quests.data, fines: fines.data, siblings: sibs.data || [] }
+  for (const r of [family, me, tx, quests, fines, mypend, sibs]) if (r.error) throw r.error
+  return { family: family.data, me: me.data, tx: tx.data, quests: quests.data, fines: fines.data, myPending: mypend.data || [], siblings: sibs.data || [] }
 }
 export async function updateFamily(id, fields) {
   const { error } = await supabase.from('families').update(fields).eq('id', id)

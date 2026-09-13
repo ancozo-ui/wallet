@@ -12,6 +12,8 @@ export default function Child({ ctx }) {
 
   const me = data.me
   const fines = data.fines || []
+  const reserved = (data.myPending || []).reduce((a, r) => a + (r.amount || 0), 0)
+  const available = Math.max(0, me.balance - reserved)
 
   return (
     <>
@@ -28,7 +30,7 @@ export default function Child({ ctx }) {
 
       <div className="body">
         {tab === 'home' && <Home me={me} tx={data.tx} onSpend={() => setTab('spend')} onSend={() => setSheet({ t: 'send' })} />}
-        {tab === 'spend' && <Spend me={me} onTime={(k) => setSheet({ t: 'time', kind: k })} onBuy={(c) => setSheet({ t: 'buy', cat: c })} />}
+        {tab === 'spend' && <Spend me={me} available={available} reserved={reserved} onTime={(k) => setSheet({ t: 'time', kind: k })} onBuy={(c) => setSheet({ t: 'buy', cat: c })} />}
         {tab === 'quests' && <Quests quests={data.quests} run={run}
           onSubmit={(q) => setSheet({ t: 'submit', q })} onPropose={() => setSheet({ t: 'propose' })} />}
         {tab === 'stats' && <Stats kid={me} tx={data.tx} allowanceDay={data.family?.allowance_day ?? 6} />}
@@ -41,9 +43,9 @@ export default function Child({ ctx }) {
       </div>
 
       {sheet?.t === 'alerts' && <AlertsSheet fines={fines} ctx={ctx} onClose={() => setSheet(null)} />}
-      {sheet?.t === 'send' && <SendSheet me={me} siblings={data.siblings} ctx={ctx} onClose={() => setSheet(null)} />}
-      {sheet?.t === 'time' && <TimeSheet me={me} kind={sheet.kind} ctx={ctx} onClose={() => setSheet(null)} />}
-      {sheet?.t === 'buy' && <BuySheet me={me} cat={sheet.cat} ctx={ctx} onClose={() => setSheet(null)} />}
+      {sheet?.t === 'send' && <SendSheet me={me} available={available} siblings={data.siblings} ctx={ctx} onClose={() => setSheet(null)} />}
+      {sheet?.t === 'time' && <TimeSheet me={me} available={available} kind={sheet.kind} ctx={ctx} onClose={() => setSheet(null)} />}
+      {sheet?.t === 'buy' && <BuySheet me={me} available={available} cat={sheet.cat} ctx={ctx} onClose={() => setSheet(null)} />}
       {sheet?.t === 'submit' && <SubmitSheet q={sheet.q} ctx={ctx} onClose={() => setSheet(null)} />}
       {sheet?.t === 'propose' && <ProposeSheet me={me} ctx={ctx} onClose={() => setSheet(null)} />}
     </>
@@ -87,9 +89,15 @@ function Home({ me, tx, onSpend, onSend }) {
   )
 }
 
-function Spend({ me, onTime, onBuy }) {
+function Spend({ me, available, reserved, onTime, onBuy }) {
   return (
     <>
+      <div className="card" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 14 }}>
+        <div style={{ fontSize: 24 }}>👛</div>
+        <div><div className="rt" style={{ fontSize: 11.5, color: 'var(--muted)' }}>지금 쓸 수 있는 돈</div>
+          <div style={{ fontFamily: 'var(--disp)', fontSize: 22 }}>{won(available)}원</div></div>
+        {reserved > 0 && <div style={{ marginLeft: 'auto', fontSize: 11.5, color: 'var(--faint)', textAlign: 'right' }}>승인 대기<br />{won(reserved)}원</div>}
+      </div>
       <div className="sec-t">⏱ 타임충전권 <span className="cnt">시간당 {won(me.rate)}원</span></div>
       <div className="grid2">
         <button className="tile" onClick={() => onTime('game')}><span className="em">🎮</span><span className="tt">게임 이용권</span><span className="ds">주말에 즐겨요</span></button>
@@ -137,19 +145,19 @@ function AlertsSheet({ fines, ctx, onClose }) {
   )
 }
 
-function SendSheet({ me, siblings, ctx, onClose }) {
+function SendSheet({ me, available, siblings, ctx, onClose }) {
   const [to, setTo] = useState(siblings[0]?.id || '')
   const [amt, setAmt] = useState('')
   const [memo, setMemo] = useState('')
   if (!siblings.length) return <Sheet title="💌 보내기" onClose={onClose}><div className="empty" style={{ padding: 20 }}>보낼 형제가 없어요</div></Sheet>
   const go = async () => {
     if (!+amt) return
-    if (+amt > me.balance) { ctx.toast('잔액보다 많이 보낼 수 없어요'); return }
+    if (+amt > available) { ctx.toast(`쓸 수 있는 돈이 부족해요 (지금 ${won(available)}원)`); return }
     const ok = await ctx.run(() => api.createRequest(me.family_id, me.id, { kind: 'transfer', to_member_id: to, amount: +amt, memo: memo || '용돈 선물' }), '보내기 요청 완료! 부모님 확인을 기다려요 💌')
     if (ok) onClose()
   }
   return (
-    <Sheet title="💌 형제에게 보내기" sub="부모님이 확인하면 전달돼요 · 서로의 잔액은 볼 수 없어요" onClose={onClose}>
+    <Sheet title="💌 형제에게 보내기" sub={`쓸 수 있는 돈 ${won(available)}원 · 부모님이 확인하면 전달돼요`} onClose={onClose}>
       {siblings.length > 1 && <div className="field"><label>누구에게?</label>
         <select value={to} onChange={(e) => setTo(e.target.value)}>
           {siblings.map((s) => <option key={s.id} value={s.id}>{s.emoji} {s.name}</option>)}
@@ -161,34 +169,38 @@ function SendSheet({ me, siblings, ctx, onClose }) {
   )
 }
 
-function TimeSheet({ me, kind, ctx, onClose }) {
+function TimeSheet({ me, available, kind, ctx, onClose }) {
   const [hours, setHours] = useState(1)
   const amt = Math.round(me.rate * hours)
   const label = kind === 'game' ? '🎮 게임 이용권' : '📺 TV 이용권'
+  const tooMuch = amt > available
   const go = async () => {
+    if (tooMuch) { ctx.toast(`쓸 수 있는 돈이 부족해요 (지금 ${won(available)}원)`); return }
     const ok = await ctx.run(() => api.createRequest(me.family_id, me.id, { kind: 'spend', category: kind, amount: amt, memo: `${hours % 1 ? hours.toFixed(1) : hours}시간 이용`, convert: false }), '요청을 보냈어요! 부모님 확인을 기다려요 ⏳')
     if (ok) onClose()
   }
   return (
-    <Sheet title={label} sub={`시간당 ${won(me.rate)}원 · 쓸 만큼 골라요`} onClose={onClose}>
+    <Sheet title={label} sub={`시간당 ${won(me.rate)}원 · 쓸 수 있는 돈 ${won(available)}원`} onClose={onClose}>
       <Stepper value={hours} min={0.5} step={0.5} max={5} format={(v) => `${v % 1 ? v.toFixed(1) : v}시간`} onChange={setHours} />
-      <div className="calc">{won(amt)}원 차감</div>
+      <div className="calc" style={tooMuch ? { background: 'var(--danger-soft)', color: 'var(--danger)' } : null}>
+        {tooMuch ? `돈이 부족해요 · ${won(amt)}원 필요` : `${won(amt)}원 차감`}</div>
       <button className="btn pri" style={{ marginTop: 14 }} onClick={go}>부모님께 요청 💌</button>
     </Sheet>
   )
 }
 
-function BuySheet({ me, cat, ctx, onClose }) {
+function BuySheet({ me, available, cat, ctx, onClose }) {
   const ci = CATS[cat]
   const [amt, setAmt] = useState('')
   const [memo, setMemo] = useState('')
   const go = async () => {
     if (!+amt) return
+    if (+amt > available) { ctx.toast(`쓸 수 있는 돈이 부족해요 (지금 ${won(available)}원)`); return }
     const ok = await ctx.run(() => api.createRequest(me.family_id, me.id, { kind: 'spend', category: cat, amount: +amt, memo: memo || `${ci.n} 구매`, convert: true }), '요청을 보냈어요! 부모님 확인을 기다려요 ⏳')
     if (ok) onClose()
   }
   return (
-    <Sheet title={`${ci.e} ${ci.n} 사기`} sub="얼마가 필요한지 적고, 부모님께 보내요" onClose={onClose}>
+    <Sheet title={`${ci.e} ${ci.n} 사기`} sub={`쓸 수 있는 돈 ${won(available)}원 · 얼마가 필요한지 적어요`} onClose={onClose}>
       <div className="field"><label>필요한 금액 (원)</label><input type="number" inputMode="numeric" value={amt} onChange={(e) => setAmt(e.target.value)} placeholder="예: 2000" /></div>
       <div className="field"><label>무엇을 살 거예요?</label><input value={memo} onChange={(e) => setMemo(e.target.value)} placeholder="예: 친구 생일 선물" /></div>
       <button className="btn pri" onClick={go}>부모님께 요청 💌</button>
