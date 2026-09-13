@@ -13,6 +13,21 @@ export function Sheet({ title, sub, children, onClose }) {
   )
 }
 
+// 연타로 같은 요청이 두 번 만들어지는 걸 막는 제출 버튼
+export function ActionButton({ className, onClick, children, busyLabel = '처리 중…', ...rest }) {
+  const [busy, setBusy] = useState(false)
+  const go = async () => {
+    if (busy) return
+    setBusy(true)
+    try { await onClick() } finally { setBusy(false) }
+  }
+  return (
+    <button className={className} disabled={busy} onClick={go} {...rest}>
+      {busy ? busyLabel : children}
+    </button>
+  )
+}
+
 export function Stepper({ value, min = 0.5, step = 0.5, max = 99, format, onChange }) {
   const fmt = format || ((v) => v)
   return (
@@ -91,6 +106,7 @@ export function Celebrate({ amount, onDone }) {
       <div className="celebrate">
         <div className="msg">
           <div className="em">🎉</div>
+          <div style={{ fontWeight: 800, fontSize: 15 }}>퀘스트 완료!</div>
           <div className="big">+{won(amount)}원!</div>
           <div style={{ color: 'var(--muted)', fontSize: 13 }}>보상이 지급됐어요</div>
         </div>

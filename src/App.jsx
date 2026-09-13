@@ -48,15 +48,21 @@ export default function App() {
     return unsub
   }, [me, reload])
 
+  // 작업(fn)과 갱신(reload)을 분리한다.
+  // 예전엔 한 try 에 묶여 있어서, 저장은 성공했는데 갱신에서 실패하면 false 를 돌려주고
+  // 사용자가 다시 눌러 같은 요청이 중복 생성됐다.
   const run = useCallback(async (fn, okMsg, celeAmt) => {
     if (!online) { toast('📡 인터넷에 연결되면 할 수 있어요'); return false }
     try {
       await fn()
-      await reload()
-      if (celeAmt) setCele(celeAmt)
-      if (okMsg) toast(okMsg)
-      return true
-    } catch (e) { toast('⚠️ ' + (e.message || '문제가 생겼어요')); return false }
+    } catch (e) {
+      toast('⚠️ ' + (e.message || '문제가 생겼어요'))
+      return false
+    }
+    if (celeAmt) setCele(celeAmt)
+    if (okMsg) toast(okMsg)
+    try { await reload() } catch { /* 화면 갱신 실패는 작업 성공에 영향 없음 */ }
+    return true
   }, [online, reload]) // eslint-disable-line
 
   const signOut = () => supabase.auth.signOut()

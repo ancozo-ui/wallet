@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { QCAT, catInfo, won, stars, WEEKDAYS, allowanceWeekStart, txIcon } from './const'
-import { Sheet, Donut, Bars } from './ui'
+import { Sheet, Donut, Bars, ActionButton } from './ui'
 import * as api from './api'
 
 export default function Parent({ ctx }) {
@@ -145,8 +145,8 @@ function Queue({ completions, reqs, kmap, A }) {
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <div className="amt-big minus">-{won(p.amount)}원</div>
               <div className="btn-row" style={{ marginLeft: 'auto' }}>
-                <button className="btn line sm" onClick={() => A.run(() => api.rejectRequest(p.id), '거절했어요')}>거절</button>
-                <button className="btn pri sm" onClick={() => A.run(() => api.approveRequest(p.id, A.actor), `${A.actor}가 승인했어요`)}>승인</button>
+                <ActionButton className="btn line sm" onClick={() => A.run(() => api.rejectRequest(p.id), '거절했어요')}>거절</ActionButton>
+                <ActionButton className="btn pri sm" onClick={() => A.run(() => api.approveRequest(p.id, A.actor), `${A.actor}가 승인했어요`)}>승인</ActionButton>
               </div>
             </div>
           </div>
@@ -162,8 +162,8 @@ function Queue({ completions, reqs, kmap, A }) {
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div className="amt-big">{won(p.amount)}원</div>
             <div className="btn-row" style={{ marginLeft: 'auto' }}>
-              <button className="btn line sm" onClick={() => A.run(() => api.rejectRequest(p.id), '거절했어요')}>거절</button>
-              <button className="btn pri sm" onClick={() => A.run(() => api.approveRequest(p.id, A.actor), '송금을 승인했어요')}>승인</button>
+              <ActionButton className="btn line sm" onClick={() => A.run(() => api.rejectRequest(p.id), '거절했어요')}>거절</ActionButton>
+              <ActionButton className="btn pri sm" onClick={() => A.run(() => api.approveRequest(p.id, A.actor), '송금을 승인했어요')}>승인</ActionButton>
             </div>
           </div>
         </div>
@@ -178,8 +178,8 @@ function Queue({ completions, reqs, kmap, A }) {
             <div className="rt">{nm(p.member_id)} · {qc.e} {p.title}</div>
             <div className="rd">원하는 보상 {won(p.reward)}원 · {qc.n}</div>
             <div className="btn-row">
-              <button className="btn line sm" style={{ flex: 1 }} onClick={() => A.run(() => api.rejectRequest(p.id), '거절했어요')}>거절</button>
-              <button className="btn pri sm" style={{ flex: 1 }} onClick={() => A.run(() => api.approveRequest(p.id, A.actor), '제안을 등록했어요')}>승인해서 등록</button>
+              <ActionButton className="btn line sm" style={{ flex: 1 }} onClick={() => A.run(() => api.rejectRequest(p.id), '거절했어요')}>거절</ActionButton>
+              <ActionButton className="btn pri sm" style={{ flex: 1 }} onClick={() => A.run(() => api.approveRequest(p.id, A.actor), '제안을 등록했어요')}>승인해서 등록</ActionButton>
             </div>
           </div>
         )
@@ -194,7 +194,8 @@ function ConfirmSheet({ q, A, onClose }) {
   const base = q.reward_type === 'unit' ? q.reward * (q.submission?.qty || 1) : q.reward
   const [bonus, setBonus] = useState(0)
   const go = async () => {
-    const ok = await A.run(() => api.confirmQuest(q.id, bonus, A.actor), null, base + bonus)
+    // 축하 연출은 아이 화면에서 뜬다(부모는 승인만).
+    const ok = await A.run(() => api.confirmQuest(q.id, bonus, A.actor), `${won(base + bonus)}원 보상을 지급했어요`)
     if (ok) onClose()
   }
   return (
@@ -208,7 +209,7 @@ function ConfirmSheet({ q, A, onClose }) {
         </div>
       </div>
       <div className="calc" style={{ background: 'var(--coin-soft)', color: 'var(--coin-ink)' }}>총 {won(base + bonus)}원 지급</div>
-      <button className="btn coin" style={{ marginTop: 14 }} onClick={go}>🎉 보상 지급하기</button>
+      <ActionButton className="btn coin" style={{ marginTop: 14 }} onClick={go}>🎉 보상 지급하기</ActionButton>
     </Sheet>
   )
 }
@@ -273,9 +274,10 @@ export function Stats({ kid, tx, allowanceDay = 6, onDelete }) {
   ftx.filter((t) => t.sign > 0).forEach((t) => { const k = incomeCats[t.category] ? t.category : 'manual'; inc[k] = (inc[k] || 0) + t.amount })
   const incData = Object.entries(inc).map(([c, v]) => ({ label: incomeCats[c][0], color: incomeCats[c][1], value: v }))
 
-  const spColors = { food: '#E58F2F', toy: '#E5573F', study_buy: '#0FA98C', book: '#4C82F7', gift: '#C65CC6', donate: '#2FA86A', game: '#7A5CF0', tv: '#F5B133' }
+  const spColors = { food: '#E58F2F', toy: '#E5573F', study_buy: '#0FA98C', book: '#4C82F7', gift: '#C65CC6', donate: '#2FA86A', game: '#7A5CF0', tv: '#F5B133', fine: '#B3261E', transfer: '#4C82F7' }
   const sp = {}
-  ftx.filter((t) => t.sign < 0 && t.grp !== 'fine').forEach((t) => { sp[t.category] = (sp[t.category] || 0) + t.amount })
+  // 벌금·송금도 '나간 돈'이므로 함께 보여준다(예전엔 벌금이 빠져 있었다).
+  ftx.filter((t) => t.sign < 0).forEach((t) => { sp[t.category] = (sp[t.category] || 0) + t.amount })
   const spData = Object.entries(sp).map(([c, v]) => ({ label: catInfo(c).n, emoji: catInfo(c).e, color: spColors[c] || '#888', value: v }))
 
   const qe = {}
@@ -302,8 +304,8 @@ export function Stats({ kid, tx, allowanceDay = 6, onDelete }) {
       {!inWin && <div className="empty" style={{ padding: 24 }}>이 기간엔 내역이 없어요<br />{period === 'week' ? '"최근 4주"로 넓혀 보세요' : ''}</div>}
       <div className="sec-t">{kid.emoji} {kid.name} · 💰 어디서 들어왔나</div>
       <div className="card">{incData.length ? <Donut data={incData} /> : <div className="empty" style={{ padding: 10 }}>아직 수입이 없어요</div>}</div>
-      <div className="sec-t">🛍 어디에 썼나</div>
-      {spData.length ? <div className="card"><Bars data={spData} /></div> : <div className="empty" style={{ padding: 20 }}>아직 쓴 내역이 없어요</div>}
+      <div className="sec-t">💸 돈이 어디로 나갔나</div>
+      {spData.length ? <div className="card"><Bars data={spData} /></div> : <div className="empty" style={{ padding: 20 }}>아직 나간 돈이 없어요</div>}
       <div className="sec-t">🏆 퀘스트로 번 돈 · 힘든 정도</div>
       <div className="card">
         {qeArr.length ? qeArr.map(([name, d]) => {
@@ -357,7 +359,7 @@ function GiveSheet({ kids, A, onClose }) {
         </select></div>
       <div className="field"><label>금액 (원)</label><input type="number" inputMode="numeric" value={amt} onChange={(e) => setAmt(e.target.value)} placeholder="예: 3000" /></div>
       <div className="field"><label>메모</label><input value={memo} onChange={(e) => setMemo(e.target.value)} placeholder="예: 이번 주 용돈" /></div>
-      <button className="btn pri" onClick={go}>용돈 주기</button>
+      <ActionButton className="btn pri" onClick={go}>용돈 주기</ActionButton>
     </Sheet>
   )
 }
@@ -379,7 +381,7 @@ function FineSheet({ kids, A, onClose }) {
         </select></div>
       <div className="field"><label>금액 (원)</label><input type="number" inputMode="numeric" value={amt} onChange={(e) => setAmt(e.target.value)} placeholder="예: 200" /></div>
       <div className="field"><label>이유</label><input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="예: 약속을 어겼어요" /></div>
-      <button className="btn danger" onClick={go}>벌금 부과하기</button>
+      <ActionButton className="btn danger" onClick={go}>벌금 부과하기</ActionButton>
     </Sheet>
   )
 }
@@ -406,7 +408,7 @@ function QuestSheet({ kids, A, onClose }) {
           {Object.entries(QCAT).map(([k, c]) => <button key={k} className={cat === k ? 'on' : ''} onClick={() => setCat(k)}>{c.e} {c.n}</button>)}
         </div></div>
       <div className="field"><label>보상 (원)</label><input type="number" inputMode="numeric" value={reward} onChange={(e) => setReward(e.target.value)} placeholder="예: 500" /></div>
-      <button className="btn pri" onClick={go}>퀘스트 등록</button>
+      <ActionButton className="btn pri" onClick={go}>퀘스트 등록</ActionButton>
     </Sheet>
   )
 }
@@ -441,7 +443,7 @@ function KidSheet({ kid, kids, A, onClose }) {
         <div className="field"><label>로그인 아이디 (영문/숫자)</label><input value={loginId} onChange={(e) => setLoginId(e.target.value)} placeholder="예: hajun" /></div>
         <div className="field"><label>PIN (4자리 이상)</label><input inputMode="numeric" value={pin} onChange={(e) => setPin(e.target.value)} placeholder="예: 2580" /></div>
       </>}
-      <button className="btn pri" onClick={go}>{isNew ? '추가하기' : '저장하기'}</button>
+      <ActionButton className="btn pri" onClick={go}>{isNew ? '추가하기' : '저장하기'}</ActionButton>
     </Sheet>
   )
 }
@@ -486,7 +488,7 @@ function SettingsSheet({ family, A, onClose }) {
           {WEEKDAYS.map((w, i) => <button key={i} className={day === i ? 'on' : ''} onClick={() => setDay(i)}>{w}</button>)}
         </div>
       </div>
-      <button className="btn pri" onClick={go}>저장하기</button>
+      <ActionButton className="btn pri" onClick={go}>저장하기</ActionButton>
     </Sheet>
   )
 }

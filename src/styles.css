@@ -134,6 +134,7 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border-radius:12px;
   padding:12px 15px;font-weight:700;font-size:14px;transition:.12s;width:100%}
 .btn:active{transform:translateY(1px)}
+.btn:disabled{opacity:.6;cursor:default}
 .btn.pri{background:var(--mint);color:#fff}
 .btn.coin{background:var(--coin);color:#3b2a06}
 .btn.ghost{background:var(--surface-2);color:var(--ink)}

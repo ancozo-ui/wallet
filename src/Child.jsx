@@ -1,13 +1,29 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { CATS, BUY_CATS, QCAT, txIcon, won } from './const'
-import { Sheet, Stepper, Stars } from './ui'
+import { Sheet, Stepper, Stars, ActionButton } from './ui'
 import { QuestCard, Stats } from './Parent'
 import * as api from './api'
 
 export default function Child({ ctx }) {
-  const { data, online, run, toast } = ctx
+  const { data, online, run, celebrate } = ctx
   const [tab, setTab] = useState('home')
   const [sheet, setSheet] = useState(null)
+
+  // 부모가 퀘스트 완료를 승인해 보상이 들어오면 아이 화면에서 축하한다.
+  // 첫 로드 때 이미 있던 내역은 기준선으로 잡아두고, 그 뒤에 새로 생긴 것만 축하.
+  const seenQuestTx = useRef(null)
+  useEffect(() => {
+    const rewards = (data?.tx || []).filter((t) => t.sign > 0 && t.category === 'quest')
+    if (seenQuestTx.current === null) {
+      seenQuestTx.current = new Set(rewards.map((t) => t.id))
+      return
+    }
+    const fresh = rewards.filter((t) => !seenQuestTx.current.has(t.id))
+    if (!fresh.length) return
+    fresh.forEach((t) => seenQuestTx.current.add(t.id))
+    celebrate(fresh.reduce((a, t) => a + t.amount, 0))
+  }, [data?.tx, celebrate])
+
   if (!data) return <div className="body"><div className="empty"><span className="e">🐷</span>불러오는 중…</div></div>
 
   const me = data.me
@@ -171,7 +187,7 @@ function SendSheet({ me, available, siblings, ctx, onClose }) {
         </select></div>}
       <div className="field"><label>보낼 금액 (원)</label><input type="number" inputMode="numeric" value={amt} onChange={(e) => setAmt(e.target.value)} placeholder="예: 500" /></div>
       <div className="field"><label>한마디</label><input value={memo} onChange={(e) => setMemo(e.target.value)} placeholder="예: 생일 축하해!" /></div>
-      <button className="btn coin" onClick={go}>보내기 요청</button>
+      <ActionButton className="btn coin" onClick={go}>보내기 요청</ActionButton>
     </Sheet>
   )
 }
@@ -191,7 +207,7 @@ function TimeSheet({ me, available, kind, ctx, onClose }) {
       <Stepper value={hours} min={0.5} step={0.5} max={5} format={(v) => `${v % 1 ? v.toFixed(1) : v}시간`} onChange={setHours} />
       <div className="calc" style={tooMuch ? { background: 'var(--danger-soft)', color: 'var(--danger)' } : null}>
         {tooMuch ? `돈이 부족해요 · ${won(amt)}원 필요` : `${won(amt)}원 차감`}</div>
-      <button className="btn pri" style={{ marginTop: 14 }} onClick={go}>부모님께 요청 💌</button>
+      <ActionButton className="btn pri" style={{ marginTop: 14 }} onClick={go}>부모님께 요청 💌</ActionButton>
     </Sheet>
   )
 }
@@ -210,7 +226,7 @@ function BuySheet({ me, available, cat, ctx, onClose }) {
     <Sheet title={`${ci.e} ${ci.n} 사기`} sub={`쓸 수 있는 돈 ${won(available)}원 · 얼마가 필요한지 적어요`} onClose={onClose}>
       <div className="field"><label>필요한 금액 (원)</label><input type="number" inputMode="numeric" value={amt} onChange={(e) => setAmt(e.target.value)} placeholder="예: 2000" /></div>
       <div className="field"><label>무엇을 살 거예요?</label><input value={memo} onChange={(e) => setMemo(e.target.value)} placeholder="예: 친구 생일 선물" /></div>
-      <button className="btn pri" onClick={go}>부모님께 요청 💌</button>
+      <ActionButton className="btn pri" onClick={go}>부모님께 요청 💌</ActionButton>
     </Sheet>
   )
 }
@@ -229,7 +245,7 @@ function SubmitSheet({ q, ctx, onClose }) {
         <Stepper value={qty} min={1} step={1} max={99} format={(v) => `${v}${q.unit || '개'}`} onChange={setQty} />
         <div className="calc">{won(q.reward * qty)}원 받을 예정</div></div>}
       <div className="field"><label>얼마나 힘들었어요?</label><Stars value={diff} onChange={setDiff} /></div>
-      <button className="btn coin" onClick={go}>완료 제출하기 ✓</button>
+      <ActionButton className="btn coin" onClick={go}>완료 제출하기 ✓</ActionButton>
     </Sheet>
   )
 }
@@ -251,7 +267,7 @@ function ProposeSheet({ me, ctx, onClose }) {
           {Object.entries(QCAT).map(([k, c]) => <button key={k} className={cat === k ? 'on' : ''} onClick={() => setCat(k)}>{c.e} {c.n}</button>)}
         </div></div>
       <div className="field"><label>원하는 보상 (원)</label><input type="number" inputMode="numeric" value={reward} onChange={(e) => setReward(e.target.value)} placeholder="예: 500" /></div>
-      <button className="btn coin" onClick={go}>부모님께 제안</button>
+      <ActionButton className="btn coin" onClick={go}>부모님께 제안</ActionButton>
     </Sheet>
   )
 }

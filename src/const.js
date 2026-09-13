@@ -2,6 +2,7 @@ export const CATS = {
   food:{e:'🍫',n:'먹거리'}, toy:{e:'🧸',n:'장난감'}, study_buy:{e:'✏️',n:'학용품'},
   book:{e:'📚',n:'책'}, gift:{e:'🎁',n:'선물'}, donate:{e:'💝',n:'기부'},
   game:{e:'🎮',n:'게임'}, tv:{e:'📺',n:'TV'},
+  fine:{e:'⚠️',n:'벌금'}, transfer:{e:'💌',n:'형제 송금'},
 }
 export const BUY_CATS = ['food','toy','study_buy','book','gift','donate']
 export const QCAT = {
