@@ -116,6 +116,10 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
 .balance .chip{background:rgba(255,255,255,.18);border-radius:11px;padding:7px 10px;flex:1;backdrop-filter:blur(2px)}
 .balance .chip .k{font-size:10.5px;opacity:.85}
 .balance .chip .v{font-size:15px;font-weight:700;margin-top:1px}
+/* 잔액이 마이너스일 때(벌금으로 0 밑으로 내려간 상태) */
+.balance.owing{background:linear-gradient(135deg,#E5573F 0%,#A8291A 100%)}
+.balance .note{position:relative;margin-top:12px;background:rgba(255,255,255,.2);border-radius:11px;
+  padding:9px 11px;font-size:11.5px;font-weight:600;line-height:1.5}
 
 .kidcard{display:flex;align-items:center;gap:12px;cursor:pointer}
 .kidcard .av{width:46px;height:46px;border-radius:14px;font-size:24px;display:flex;align-items:center;

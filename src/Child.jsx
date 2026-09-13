@@ -73,6 +73,7 @@ export default function Child({ ctx }) {
 function Home({ me, tx, fines, activeQuests, onAck, onGoQuests, onSpend, onSend }) {
   const inc = tx.filter((t) => t.sign > 0).reduce((a, t) => a + t.amount, 0)
   const out = tx.filter((t) => t.sign < 0).reduce((a, t) => a + t.amount, 0)
+  const owing = me.balance < 0
   const hasNews = fines.length > 0 || activeQuests.length > 0
   return (
     <>
@@ -96,15 +97,18 @@ function Home({ me, tx, fines, activeQuests, onAck, onGoQuests, onSpend, onSend 
           </button>
         )
       })}
-      <div className="card balance">
+      <div className={'card balance' + (owing ? ' owing' : '')}>
         <div className="lab">지금 내 용돈</div>
         <div><span className="amt">{won(me.balance)}</span><span className="won"> 원</span></div>
-        <div className="pig">🐷</div>
+        <div className="pig">{owing ? '😿' : '🐷'}</div>
         <div className="row">
           <div className="chip"><div className="k">모은 돈</div><div className="v">+{won(inc)}</div></div>
           <div className="chip"><div className="k">쓴 돈</div><div className="v">-{won(out)}</div></div>
           <div className="chip"><div className="k">시간당</div><div className="v">{won(me.rate)}</div></div>
         </div>
+        {owing && <div className="note">
+          ⚠️ 마이너스예요. 다음 용돈이나 퀘스트 보상에서 <b>{won(-me.balance)}원</b>이 먼저 채워지고,
+          그 전까지는 돈을 쓸 수 없어요.</div>}
       </div>
       <div className="btn-row">
         <button className="btn" style={{ background: 'var(--spend)', color: '#fff' }} onClick={onSpend}>💸 지출하기</button>
@@ -134,7 +138,9 @@ function Spend({ me, available, reserved, onTime, onBuy }) {
       <div className="card" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 14 }}>
         <div style={{ fontSize: 24 }}>👛</div>
         <div><div className="rt" style={{ fontSize: 11.5, color: 'var(--muted)' }}>지금 쓸 수 있는 돈</div>
-          <div style={{ fontFamily: 'var(--disp)', fontSize: 22 }}>{won(available)}원</div></div>
+          <div style={{ fontFamily: 'var(--disp)', fontSize: 22 }}>{won(available)}원</div>
+          {me.balance < 0 && <div style={{ fontSize: 11.5, color: 'var(--danger)', fontWeight: 700 }}>
+            마이너스 {won(-me.balance)}원을 채워야 쓸 수 있어요</div>}</div>
         {reserved > 0 && <div style={{ marginLeft: 'auto', fontSize: 11.5, color: 'var(--faint)', textAlign: 'right' }}>승인 대기<br />{won(reserved)}원</div>}
       </div>
       <div className="sec-t">⏱ 타임충전권 <span className="cnt">시간당 {won(me.rate)}원</span></div>

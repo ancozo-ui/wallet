@@ -89,7 +89,8 @@ function Home({ kids, allowanceDay, onGive, onFine, onAdd, onEdit, onFocus, onSe
             <div className="nm">{k.name}</div>
             <div className="rt">시간당 {won(k.rate)}원 · 탭하면 분석</div>
           </div>
-          <div className="bal" onClick={() => onFocus(k.id)}><b>{won(k.balance)}</b><span> 원</span></div>
+          <div className="bal" onClick={() => onFocus(k.id)}>
+            <b style={k.balance < 0 ? { color: 'var(--danger)' } : null}>{won(k.balance)}</b><span> 원</span></div>
           <button className="editkid" onClick={() => onEdit(k)}>✏️</button>
         </div>
       ))}
