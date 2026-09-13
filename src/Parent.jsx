@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { QCAT, catInfo, won, stars, WEEKDAYS, allowanceWeekStart, txIcon } from './const'
+import { QCAT, PRESET_QUESTS, catInfo, won, stars, WEEKDAYS, allowanceWeekStart, txIcon } from './const'
 import { Sheet, Donut, Bars, ActionButton, useIdemToken } from './ui'
 import * as api from './api'
 
@@ -51,7 +51,7 @@ export default function Parent({ ctx }) {
           queueCount={queueCount} onQueue={() => setTab('queue')} signOut={ctx.signOut} />}
         {tab === 'queue' && <Queue completions={completions} reqs={reqs} kmap={kmap} A={A} />}
         {tab === 'quests' && <Quests kids={kids} quests={data.quests} onNew={() => setSheet({ t: 'quest' })}
-          onEdit={(q) => setSheet({ t: 'questedit', quest: q })} />}
+          onEdit={(q) => setSheet({ t: 'questedit', quest: q })} onPreset={() => setSheet({ t: 'preset' })} />}
         {tab === 'stats' && <Stats kid={kmap[focusKid]} tx={data.tx.filter((t) => t.member_id === focusKid)} allowanceDay={allowanceDay} onDelete={(t) => setSheet({ t: 'deltx', tx: t })} />}
       </div>
 
@@ -69,6 +69,7 @@ export default function Parent({ ctx }) {
       {sheet?.t === 'kid' && <KidSheet kid={sheet.kid} kids={kids} A={A} onClose={() => setSheet(null)} />}
       {sheet?.t === 'quest' && <QuestSheet kids={kids} A={A} onClose={() => setSheet(null)} />}
       {sheet?.t === 'settings' && <SettingsSheet family={data.family} A={A} onClose={() => setSheet(null)} />}
+      {sheet?.t === 'preset' && <PresetQuestSheet kids={kids} quests={data.quests} A={A} onClose={() => setSheet(null)} />}
       {sheet?.t === 'questedit' && <QuestEditSheet q={sheet.quest} A={A} onClose={() => setSheet(null)} />}
       {sheet?.t === 'deltx' && <DeleteTxSheet tx={sheet.tx} A={A} onClose={() => setSheet(null)} />}
     </>
@@ -216,10 +217,13 @@ function ConfirmSheet({ q, A, onClose }) {
   )
 }
 
-function Quests({ kids, quests, onNew, onEdit }) {
+function Quests({ kids, quests, onNew, onEdit, onPreset }) {
   return (
     <>
-      <button className="btn pri" onClick={onNew} style={{ margin: '6px 0 10px' }}>＋ 새 퀘스트 등록</button>
+      <div className="btn-row" style={{ margin: '6px 0 10px' }}>
+        <button className="btn pri" onClick={onNew}>＋ 새 퀘스트</button>
+        <button className="btn line" onClick={onPreset}>📋 협의 목록 불러오기</button>
+      </div>
       <div className="msub" style={{ textAlign: 'center' }}>
         목록의 퀘스트는 계속 남아 반복 도전할 수 있어요 · ✏️ 로 보상 수정·삭제</div>
       {kids.map((k) => {
@@ -451,6 +455,52 @@ function KidSheet({ kid, kids, A, onClose }) {
         <div className="field"><label>PIN (4자리 이상)</label><input inputMode="numeric" value={pin} onChange={(e) => setPin(e.target.value)} placeholder="예: 2580" /></div>
       </>}
       <ActionButton className="btn pri" onClick={go}>{isNew ? '추가하기' : '저장하기'}</ActionButton>
+    </Sheet>
+  )
+}
+
+function PresetQuestSheet({ kids, quests, A, onClose }) {
+  const [kid, setKid] = useState(kids[0]?.id || '')
+  const [picked, setPicked] = useState(() => new Set(PRESET_QUESTS.filter((p) => !p.who).map((p) => p.title)))
+  const existing = new Set(quests.filter((q) => q.member_id === kid).map((q) => q.title))
+  const toAdd = PRESET_QUESTS.filter((p) => picked.has(p.title) && !existing.has(p.title))
+
+  const toggle = (title) => setPicked((prev) => {
+    const next = new Set(prev)
+    next.has(title) ? next.delete(title) : next.add(title)
+    return next
+  })
+  const go = async () => {
+    if (!toAdd.length) { A.toast('추가할 퀘스트를 골라주세요'); return }
+    const ok = await A.run(() => api.createQuests(A.me.family_id, kid, toAdd, A.actor),
+      `${toAdd.length}개 퀘스트를 등록했어요 🏆`)
+    if (ok) onClose()
+  }
+
+  return (
+    <Sheet title="📋 협의 목록 불러오기" sub="미리 정해둔 칭찬 코인 목록이에요. 모두 건당 500원." onClose={onClose}>
+      <div className="field"><label>누구의 퀘스트로 등록할까요?</label>
+        <select value={kid} onChange={(e) => setKid(e.target.value)}>
+          {kids.map((k) => <option key={k.id} value={k.id}>{k.emoji} {k.name}</option>)}
+        </select></div>
+      {PRESET_QUESTS.map((p) => {
+        const already = existing.has(p.title)
+        const on = picked.has(p.title)
+        return (
+          <button key={p.title} className="sblock" disabled={already}
+            style={already ? { opacity: 0.5 } : on ? { borderColor: 'var(--mint)', background: 'var(--mint-soft)' } : null}
+            onClick={() => toggle(p.title)}>
+            <span className="em">{already ? '✔️' : on ? '☑️' : '⬜'}</span>
+            <div><div className="t">{QCAT[p.category].e} {p.title}</div>
+              <div className="d">
+                {already ? '이미 등록됨' : `${p.unit ? p.unit + '당 ' : ''}500원${p.who ? ` · ${p.who} 전용` : ''}`}
+              </div></div>
+          </button>
+        )
+      })}
+      <ActionButton className="btn pri" style={{ marginTop: 6 }} onClick={go}>
+        {toAdd.length ? `${toAdd.length}개 등록하기` : '등록할 항목을 골라주세요'}
+      </ActionButton>
     </Sheet>
   )
 }

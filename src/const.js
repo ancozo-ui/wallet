@@ -6,8 +6,27 @@ export const CATS = {
 }
 export const BUY_CATS = ['food','toy','study_buy','book','gift','donate']
 export const QCAT = {
-  study:{e:'📚',n:'학습',c:'q-study'}, help:{e:'🧹',n:'도움',c:'q-help'}, health:{e:'🏃',n:'건강',c:'q-health'},
+  study:{e:'📚',n:'학습',c:'q-study'}, help:{e:'🧹',n:'도움',c:'q-help'},
+  manner:{e:'🌱',n:'예절',c:'q-manner'}, health:{e:'🏃',n:'건강',c:'q-health'},
 }
+
+// 가족이 미리 협의해 둔 '칭찬 코인 지급 목록'. 모두 건당 500원.
+// unit 이 있으면 수량형(예: 권당 500원), 없으면 1회 완료당 500원.
+export const PRESET_QUESTS = [
+  { title:'장난감 정리하기', category:'help' },
+  { title:'아침 기상 후 이부자리 정리하기', category:'help' },
+  { title:'스스로 양보하기', category:'manner' },
+  { title:'말을 동글동글하게 하기', category:'manner' },
+  { title:'하고 싶은 것 제안하기', category:'manner' },
+  { title:'영어책 읽기 (아빠가 읽어주는 책 듣기)', category:'study', unit:'권' },
+  { title:'영어책 읽기 (따라 읽기)', category:'study', unit:'권' },
+  { title:'책읽기 (그냥책)', category:'study', unit:'권' },
+  { title:'만화책·패드 읽기 (2권당)', category:'study' },
+  { title:'상 / 100점 받아오기 (발표회·수행평가 등)', category:'study' },
+  { title:'받아쓰기 80점 이상', category:'study', who:'유찬' },
+  { title:'수학 학습지 완료', category:'study', who:'유찬' },
+  { title:'학습(국어+수학) 완료', category:'study', who:'유건' },
+]
 export const EMOJIS = ['🦊','🐰','🐱','🐶','🐻','🐼','🐯','🦁','🐨','🐸','🐵','🦄','🐹','🐥']
 export const WEEKDAYS = ['일','월','화','수','목','금','토']
 

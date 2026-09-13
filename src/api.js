@@ -77,6 +77,19 @@ export async function createQuest(familyId, member, title, cat, reward, actor) {
   })
   if (error) throw error
 }
+// 협의된 목록을 한 번에 등록
+export async function createQuests(familyId, memberId, items, actor) {
+  const rows = items.map((it) => ({
+    family_id: familyId, member_id: memberId,
+    title: it.title, category: it.category,
+    reward_type: it.unit ? 'unit' : 'fixed',
+    unit: it.unit || null,
+    reward: it.reward ?? 500,
+    status: 'open', proposer: 'parent', actor,
+  }))
+  const { error } = await supabase.from('quests').insert(rows)
+  if (error) throw error
+}
 export async function updateQuest(id, fields) {
   const { error } = await supabase.from('quests').update(fields).eq('id', id)
   if (error) throw error
