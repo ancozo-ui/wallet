@@ -85,6 +85,14 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
 .byline{color:var(--faint)}
 .body{flex:1;overflow-y:auto;padding:4px 15px 16px}
 
+/* offline */
+.netbar{display:flex;align-items:center;gap:8px;padding:9px 15px;background:var(--danger-soft);
+  color:var(--danger);font-size:12.5px;font-weight:700;border-bottom:1px solid var(--line)}
+.netbar .d{font-weight:600;color:var(--muted);margin-left:auto}
+.offline .tile,.offline .quest [data-apply],.offline .quest [data-submit],
+.offline .btn.pri,.offline .btn.coin,.offline .btn.danger,
+.offline [data-approve],.offline [data-reject],.offline [data-confirm],.offline [data-ack]{opacity:.45}
+
 /* nav */
 .nav{display:flex;background:var(--surface);border-top:1px solid var(--line)}
 .nav button{flex:1;padding:9px 2px 11px;display:flex;flex-direction:column;align-items:center;gap:3px;
@@ -257,10 +265,12 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
 <div class="wrap">
   <div class="demobar" id="demobar">
     <div id="demoControls" style="display:flex;align-items:center;gap:8px;flex:1;flex-wrap:wrap;min-width:0"></div>
+    <button class="themebtn" id="net" title="오프라인 테스트">📶</button>
     <button class="themebtn" id="theme" title="테마 전환">🌙</button>
   </div>
-  <div class="phone"><div class="screen">
+  <div class="phone"><div class="screen" id="screen">
     <div class="hd" id="hd"></div>
+    <div class="netbar" id="netbar" hidden></div>
     <div class="body" id="view"></div>
     <div class="nav" id="nav"></div>
   </div></div>
@@ -318,6 +328,12 @@ function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
 function nid(){return ++S.seq}
 
 let role='parent', tab={parent:'home',big:'home',small:'home'}, focusKid='big', actor='엄마';
+let netOverride=false; // 데모용 오프라인 시뮬레이션
+function isOnline(){return netOverride?false:(navigator.onLine!==false)}
+const MUTATING_ACTS=new Set(['give','fine','send','addkid','newquest','propose']);
+function isMutating(d){
+  return !!(d.buy||d.time||d.apply||d.submit||d.approve||d.reject||d.confirm||d.ack||d.editkid||(d.act&&MUTATING_ACTS.has(d.act)));
+}
 
 /* ---------- helpers ---------- */
 const $=s=>document.querySelector(s);
@@ -342,7 +358,14 @@ function stars(n){return '★★★'.slice(0,n)+'☆☆☆'.slice(0,3-n)}
 function render(){
   if(role!=='parent'&&!S.kids[role])role='parent';
   if(!tab[role])tab[role]='home';
-  renderDemo(); renderHeader(); renderView(); renderNav();
+  renderDemo(); renderHeader(); renderView(); renderNav(); renderNet();
+}
+function renderNet(){
+  const off=!isOnline();
+  $('#screen').classList.toggle('offline',off);
+  const nb=$('#netbar'); nb.hidden=!off;
+  if(off)nb.innerHTML=`<span>📡 인터넷에 연결되어 있지 않아요</span><span class="d">마지막으로 본 정보예요</span>`;
+  $('#net').textContent=off?'✈️':'📶';
 }
 function renderDemo(){
   const c=$('#demoControls');
@@ -655,6 +678,7 @@ document.addEventListener('click',e=>{
   if(d.tab){tab[role]=d.tab;render();return;}
   if(d.goto){tab[role]=d.goto;render();return;}
   if(d.focus){focusKid=d.focus;tab.parent='stats';render();return;}
+  if(!isOnline()&&isMutating(d)){toast('📡 인터넷에 연결되면 할 수 있어요');return;}
   if(d.editkid)return kidFormSheet(d.editkid);
   if(d.act)return doAct(d.act);
   if(d.buy)return buyFlow(d.buy);
@@ -898,6 +922,9 @@ $('#theme').onclick=()=>{
   document.documentElement.setAttribute('data-theme',dark?'light':'dark');
   $('#theme').textContent=dark?'🌙':'☀️';
 };
+$('#net').onclick=()=>{netOverride=!netOverride;
+  toast(netOverride?'오프라인 상태로 전환했어요 (테스트)':'온라인으로 돌아왔어요');render();};
+addEventListener('online',render); addEventListener('offline',render);
 
 render();
 </script>

@@ -83,6 +83,14 @@ create table requests (
 );
 create index on requests(family_id, status);
 
+-- 재시도 중복 방지: 같은 client token 으로 온 쓰기 요청은 1번만 처리
+-- (오프라인→온라인 복귀, 네트워크 끊김 재시도 때 잔액 중복 변경 방지)
+create table op_log (
+  token      uuid primary key,
+  created_at timestamptz not null default now()
+);
+alter table op_log enable row level security;  -- 정책 없음 → RPC(정의자)만 접근
+
 -- ======================= HELPERS =======================
 -- security definer 로 members 를 RLS 우회 조회 → 정책 재귀 방지
 create or replace function my_family_id() returns uuid
@@ -103,6 +111,17 @@ $$ begin
      if my_role() is distinct from 'parent' then
        raise exception '부모만 할 수 있어요';
      end if;
+   end $$;
+
+-- 이미 처리된 토큰이면 true 반환(= 호출자는 바로 종료). null 이면 중복검사 생략.
+create or replace function op_seen(p_token uuid) returns boolean
+  language plpgsql security definer set search_path = public as
+$$ begin
+     if p_token is null then return false; end if;
+     insert into op_log(token) values (p_token);
+     return false;                      -- 처음 보는 토큰 → 진행
+   exception when unique_violation then
+     return true;                       -- 이미 처리됨 → 재시도 무시
    end $$;
 
 -- 잔액은 RPC 안에서만 변경 가능(app.bal='ok' 일 때만). 그 외 UPDATE 는 차단.
@@ -186,11 +205,13 @@ $$ select m.id, m.name, m.emoji from members m
     order by m.sort $$;
 
 -- [부모] 용돈 지급
-create or replace function give_allowance(p_member uuid, p_amount int, p_memo text, p_actor text)
+create or replace function give_allowance(p_member uuid, p_amount int, p_memo text, p_actor text,
+                                          p_token uuid default null)
   returns void language plpgsql security definer set search_path = public as
 $$ declare v_fam uuid;
    begin
      perform assert_parent();
+     if op_seen(p_token) then return; end if;
      select family_id into v_fam from members where id = p_member;
      if v_fam is distinct from my_family_id() then raise exception '우리 가족 아이가 아니에요'; end if;
      if p_amount <= 0 then raise exception '금액은 0보다 커야 해요'; end if;
@@ -201,11 +222,13 @@ $$ declare v_fam uuid;
    end $$;
 
 -- [부모] 퀘스트 완료 확인 + 보너스 지급
-create or replace function confirm_quest(p_quest uuid, p_bonus int, p_actor text)
+create or replace function confirm_quest(p_quest uuid, p_bonus int, p_actor text,
+                                         p_token uuid default null)
   returns void language plpgsql security definer set search_path = public as
 $$ declare q quests; v_base int; v_total int; v_label text;
    begin
      perform assert_parent();
+     if op_seen(p_token) then return; end if;
      select * into q from quests where id = p_quest;
      if q.id is null or q.family_id <> my_family_id() then raise exception '퀘스트를 찾을 수 없어요'; end if;
      if q.status <> 'done_sub' then raise exception '완료 제출된 퀘스트가 아니에요'; end if;
@@ -226,11 +249,13 @@ $$ declare q quests; v_base int; v_total int; v_label text;
    end $$;
 
 -- [부모] 요청 승인(지출/송금/제안)
-create or replace function approve_request(p_request uuid, p_actor text)
+create or replace function approve_request(p_request uuid, p_actor text,
+                                           p_token uuid default null)
   returns void language plpgsql security definer set search_path = public as
 $$ declare r requests; v_bal int;
    begin
      perform assert_parent();
+     if op_seen(p_token) then return; end if;
      select * into r from requests where id = p_request;
      if r.id is null or r.family_id <> my_family_id() then raise exception '요청을 찾을 수 없어요'; end if;
      if r.status <> 'pending' then raise exception '이미 처리된 요청이에요'; end if;
@@ -277,11 +302,13 @@ $$ begin
    end $$;
 
 -- [부모] 벌금 부과(대기) — 아이 확인 후 차감
-create or replace function issue_fine(p_member uuid, p_amount int, p_reason text, p_actor text)
+create or replace function issue_fine(p_member uuid, p_amount int, p_reason text, p_actor text,
+                                      p_token uuid default null)
   returns uuid language plpgsql security definer set search_path = public as
 $$ declare v_id uuid;
    begin
      perform assert_parent();
+     if op_seen(p_token) then return null; end if;
      if (select family_id from members where id = p_member) is distinct from my_family_id()
        then raise exception '우리 가족 아이가 아니에요'; end if;
      if p_amount <= 0 then raise exception '금액 오류'; end if;
@@ -292,10 +319,11 @@ $$ declare v_id uuid;
    end $$;
 
 -- [아이] 벌금 확인 → 차감(동의가 아니라 "확인")
-create or replace function acknowledge_fine(p_request uuid)
+create or replace function acknowledge_fine(p_request uuid, p_token uuid default null)
   returns void language plpgsql security definer set search_path = public as
 $$ declare r requests;
    begin
+     if op_seen(p_token) then return; end if;
      select * into r from requests where id = p_request;
      if r.id is null or r.kind <> 'fine' then raise exception '벌금을 찾을 수 없어요'; end if;
      if r.member_id <> my_member_id() then raise exception '내 벌금이 아니에요'; end if;

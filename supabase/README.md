@@ -37,6 +37,16 @@ supabase/
 
 아이의 지출/송금/제안 "요청 생성"은 RLS 정책으로 직접 INSERT 허용(본인 것만).
 
+## 온라인 전용 + 재시도 안전장치
+
+- 이 앱은 **인터넷 연결됐을 때만 행동**(지급/지출/승인/퀘스트/벌금) 가능하다.
+  오프라인이면 클라이언트가 마지막 데이터(캐시)를 보여주고 행동 버튼은 "인터넷 연결이 필요해요"로 안내한다.
+- 연결이 끊겼다 이어질 때 같은 요청이 두 번 전송돼 **잔액이 중복 변경되는 것**을 막기 위해,
+  잔액을 바꾸는 RPC 들은 마지막 인자로 **`p_token uuid`(클라이언트가 만든 고유값)** 를 받는다.
+  같은 토큰이 다시 오면 `op_seen()` 이 감지해 **한 번만** 처리한다. (토큰 생략 시 중복검사 없음)
+  대상: `give_allowance` · `confirm_quest` · `approve_request` · `issue_fine` · `acknowledge_fine`.
+  예: `supabase.rpc('give_allowance',{ p_member, p_amount, p_memo, p_actor, p_token: crypto.randomUUID() })`
+
 ## 적용 방법
 
 ### A. Supabase CLI (권장)
