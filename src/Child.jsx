@@ -4,8 +4,14 @@ import { Sheet, Stepper, Stars, ActionButton, useIdemToken } from './ui'
 import { QuestCard, Stats } from './Parent'
 import * as api from './api'
 
+// 돈이 모자랄 때 아이에게 보여줄 안내. 마이너스면 '채워야 한다'는 걸 먼저 알려준다.
+function shortOfMoney(available, balance) {
+  if (balance < 0) return `마이너스 ${won(-balance)}원을 먼저 채워야 해요 · 퀘스트를 깨보세요! 🏆`
+  return `쓸 수 있는 돈이 부족해요 (지금 ${won(available)}원) · 퀘스트로 더 모아볼까요? 🏆`
+}
+
 export default function Child({ ctx }) {
-  const { data, online, run, celebrate } = ctx
+  const { data, online, run, celebrate, toast } = ctx
   const [tab, setTab] = useState('home')
   const [sheet, setSheet] = useState(null)
 
@@ -32,6 +38,9 @@ export default function Child({ ctx }) {
   const reserved = (data.myPending || []).reduce((a, r) => a + (r.amount || 0), 0)
   const available = Math.max(0, me.balance - reserved)
   const ackFineNow = (f) => run(() => api.ackFine(f.id), `벌금 ${won(f.amount)}원이 빠져나갔어요`)
+  // 마이너스는 하한선 없이 쌓이고, 전부 채워 플러스가 되어야 쓸 수 있다.
+  const blocked = me.balance < 0
+  const guide = () => toast(shortOfMoney(available, me.balance))
 
   return (
     <>
@@ -48,8 +57,11 @@ export default function Child({ ctx }) {
       <div className="body">
         {tab === 'home' && <Home me={me} tx={data.tx} fines={fines} activeQuests={activeQuests}
           onAck={ackFineNow} onGoQuests={() => setTab('quests')}
-          onSpend={() => setTab('spend')} onSend={() => setSheet({ t: 'send' })} />}
-        {tab === 'spend' && <Spend me={me} available={available} reserved={reserved} onTime={(k) => setSheet({ t: 'time', kind: k })} onBuy={(c) => setSheet({ t: 'buy', cat: c })} />}
+          onSpend={() => setTab('spend')} onSend={() => (blocked ? guide() : setSheet({ t: 'send' }))} />}
+        {tab === 'spend' && <Spend me={me} available={available} reserved={reserved} blocked={blocked}
+          onGoQuests={() => setTab('quests')}
+          onTime={(k) => (blocked ? guide() : setSheet({ t: 'time', kind: k }))}
+          onBuy={(c) => (blocked ? guide() : setSheet({ t: 'buy', cat: c }))} />}
         {tab === 'quests' && <Quests quests={data.quests} run={run}
           onSubmit={(q) => setSheet({ t: 'submit', q })} onPropose={() => setSheet({ t: 'propose' })} />}
         {tab === 'stats' && <Stats kid={me} tx={data.tx} allowanceDay={data.family?.allowance_day ?? 6} />}
@@ -132,24 +144,33 @@ function Home({ me, tx, fines, activeQuests, onAck, onGoQuests, onSpend, onSend 
   )
 }
 
-function Spend({ me, available, reserved, onTime, onBuy }) {
+function Spend({ me, available, reserved, blocked, onGoQuests, onTime, onBuy }) {
   return (
     <>
       <div className="card" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 14 }}>
-        <div style={{ fontSize: 24 }}>👛</div>
+        <div style={{ fontSize: 24 }}>{blocked ? '😿' : '👛'}</div>
         <div><div className="rt" style={{ fontSize: 11.5, color: 'var(--muted)' }}>지금 쓸 수 있는 돈</div>
-          <div style={{ fontFamily: 'var(--disp)', fontSize: 22 }}>{won(available)}원</div>
-          {me.balance < 0 && <div style={{ fontSize: 11.5, color: 'var(--danger)', fontWeight: 700 }}>
-            마이너스 {won(-me.balance)}원을 채워야 쓸 수 있어요</div>}</div>
+          <div style={{ fontFamily: 'var(--disp)', fontSize: 22 }}>{won(available)}원</div></div>
         {reserved > 0 && <div style={{ marginLeft: 'auto', fontSize: 11.5, color: 'var(--faint)', textAlign: 'right' }}>승인 대기<br />{won(reserved)}원</div>}
       </div>
+
+      {blocked && (
+        <div className="card" style={{ background: 'var(--danger-soft)', borderColor: 'transparent' }}>
+          <div style={{ fontWeight: 800, color: 'var(--danger)', fontSize: 14 }}>지금은 쓸 수 없어요</div>
+          <div style={{ fontSize: 12.5, marginTop: 5, lineHeight: 1.6 }}>
+            마이너스 <b>{won(-me.balance)}원</b>을 다 채워야 다시 쓸 수 있어요.<br />
+            퀘스트를 깨서 보상을 받거나, 토요일 용돈을 모으면 저절로 채워져요!
+          </div>
+          <button className="btn pri" style={{ marginTop: 11 }} onClick={onGoQuests}>🏆 퀘스트 하러 가기</button>
+        </div>
+      )}
       <div className="sec-t">⏱ 타임충전권 <span className="cnt">시간당 {won(me.rate)}원</span></div>
-      <div className="grid2">
+      <div className="grid2" style={blocked ? { opacity: 0.45 } : null}>
         <button className="tile" onClick={() => onTime('game')}><span className="em">🎮</span><span className="tt">게임 이용권</span><span className="ds">주말에 즐겨요</span></button>
         <button className="tile" onClick={() => onTime('tv')}><span className="em">📺</span><span className="tt">TV 이용권</span><span className="ds">평일에 즐겨요</span></button>
       </div>
       <div className="sec-t">🛒 구매 (실제 현금으로 환전)</div>
-      <div className="grid2">
+      <div className="grid2" style={blocked ? { opacity: 0.45 } : null}>
         {BUY_CATS.map((c) => <button className="tile" key={c} onClick={() => onBuy(c)}><span className="em">{CATS[c].e}</span><span className="tt">{CATS[c].n}</span></button>)}
       </div>
       <div className="insight" style={{ marginTop: 14 }}><span className="q">💡</span>
@@ -182,7 +203,7 @@ function SendSheet({ me, available, siblings, ctx, onClose }) {
   if (!siblings.length) return <Sheet title="💌 보내기" onClose={onClose}><div className="empty" style={{ padding: 20 }}>보낼 형제가 없어요</div></Sheet>
   const go = async () => {
     if (!+amt) return
-    if (+amt > available) { ctx.toast(`쓸 수 있는 돈이 부족해요 (지금 ${won(available)}원)`); return }
+    if (+amt > available) { ctx.toast(shortOfMoney(available, me.balance)); return }
     const ok = await ctx.run(() => api.createRequest(me.family_id, me.id, { kind: 'transfer', to_member_id: to, amount: +amt, memo: memo || '용돈 선물', client_token: token }), '보내기 요청 완료! 부모님 확인을 기다려요 💌')
     if (ok) onClose()
   }
@@ -206,7 +227,7 @@ function TimeSheet({ me, available, kind, ctx, onClose }) {
   const label = kind === 'game' ? '🎮 게임 이용권' : '📺 TV 이용권'
   const tooMuch = amt > available
   const go = async () => {
-    if (tooMuch) { ctx.toast(`쓸 수 있는 돈이 부족해요 (지금 ${won(available)}원)`); return }
+    if (tooMuch) { ctx.toast(shortOfMoney(available, me.balance)); return }
     const ok = await ctx.run(() => api.createRequest(me.family_id, me.id, { kind: 'spend', category: kind, amount: amt, memo: `${hours % 1 ? hours.toFixed(1) : hours}시간 이용`, convert: false, client_token: token }), '요청을 보냈어요! 부모님 확인을 기다려요 ⏳')
     if (ok) onClose()
   }
@@ -227,7 +248,7 @@ function BuySheet({ me, available, cat, ctx, onClose }) {
   const [memo, setMemo] = useState('')
   const go = async () => {
     if (!+amt) return
-    if (+amt > available) { ctx.toast(`쓸 수 있는 돈이 부족해요 (지금 ${won(available)}원)`); return }
+    if (+amt > available) { ctx.toast(shortOfMoney(available, me.balance)); return }
     const ok = await ctx.run(() => api.createRequest(me.family_id, me.id, { kind: 'spend', category: cat, amount: +amt, memo: memo || `${ci.n} 구매`, convert: true, client_token: token }), '요청을 보냈어요! 부모님 확인을 기다려요 ⏳')
     if (ok) onClose()
   }
