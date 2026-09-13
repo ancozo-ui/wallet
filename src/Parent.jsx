@@ -250,19 +250,28 @@ export function QuestCard({ q, child, onApply, onSubmit }) {
 }
 
 export function Stats({ kid, tx }) {
+  const [period, setPeriod] = useState('week')
   if (!kid) return <div className="empty">아이를 선택하세요</div>
+
+  const days = period === 'month' ? 30 : 7
+  const from = Date.now() - days * 86400 * 1000
+  const ftx = tx.filter((t) => new Date(t.created_at).getTime() >= from)
+  const inWin = ftx.length
+  const spent = ftx.filter((t) => t.sign < 0).reduce((a, t) => a + t.amount, 0)
+  const earned = ftx.filter((t) => t.sign > 0).reduce((a, t) => a + t.amount, 0)
+
   const incomeCats = { weekly: ['주간 용돈', 'var(--mint)'], quest: ['퀘스트', 'var(--coin)'], transfer: ['받은 돈', 'var(--spend)'], manual: ['직접 받음', 'var(--mint-ink)'] }
   const inc = {}
-  tx.filter((t) => t.sign > 0).forEach((t) => { const k = incomeCats[t.category] ? t.category : 'manual'; inc[k] = (inc[k] || 0) + t.amount })
+  ftx.filter((t) => t.sign > 0).forEach((t) => { const k = incomeCats[t.category] ? t.category : 'manual'; inc[k] = (inc[k] || 0) + t.amount })
   const incData = Object.entries(inc).map(([c, v]) => ({ label: incomeCats[c][0], color: incomeCats[c][1], value: v }))
 
   const spColors = { food: '#E58F2F', toy: '#E5573F', study_buy: '#0FA98C', book: '#4C82F7', gift: '#C65CC6', donate: '#2FA86A', game: '#7A5CF0', tv: '#F5B133' }
   const sp = {}
-  tx.filter((t) => t.sign < 0 && t.grp !== 'fine').forEach((t) => { sp[t.category] = (sp[t.category] || 0) + t.amount })
+  ftx.filter((t) => t.sign < 0 && t.grp !== 'fine').forEach((t) => { sp[t.category] = (sp[t.category] || 0) + t.amount })
   const spData = Object.entries(sp).map(([c, v]) => ({ label: catInfo(c).n, emoji: catInfo(c).e, color: spColors[c] || '#888', value: v }))
 
   const qe = {}
-  tx.filter((t) => t.sign > 0 && t.category === 'quest').forEach((t) => {
+  ftx.filter((t) => t.sign > 0 && t.category === 'quest').forEach((t) => {
     const key = (t.label || '퀘스트').replace(/\s*\(.*\)/, '').replace(/\s*\+보너스/, '')
     if (!qe[key]) qe[key] = { total: 0, cnt: 0, diffs: [] }
     qe[key].total += t.amount; qe[key].cnt++; if (t.difficulty) qe[key].diffs.push(t.difficulty)
@@ -271,6 +280,17 @@ export function Stats({ kid, tx }) {
 
   return (
     <>
+      <div className="seg" style={{ margin: '8px 0 4px' }}>
+        <button className={period === 'week' ? 'on p' : ''} onClick={() => setPeriod('week')}>최근 1주</button>
+        <button className={period === 'month' ? 'on p' : ''} onClick={() => setPeriod('month')}>최근 1달</button>
+      </div>
+      <div className="card" style={{ display: 'flex', gap: 10, padding: 13 }}>
+        <div style={{ flex: 1 }}><div className="rt" style={{ fontSize: 11.5, color: 'var(--muted)' }}>모은 돈</div>
+          <div style={{ fontFamily: 'var(--disp)', fontSize: 20, color: 'var(--good)' }}>+{won(earned)}</div></div>
+        <div style={{ flex: 1 }}><div className="rt" style={{ fontSize: 11.5, color: 'var(--muted)' }}>쓴 돈</div>
+          <div style={{ fontFamily: 'var(--disp)', fontSize: 20, color: 'var(--danger)' }}>-{won(spent)}</div></div>
+      </div>
+      {!inWin && <div className="empty" style={{ padding: 24 }}>이 기간엔 내역이 없어요<br />{period === 'week' ? '"최근 1달"로 넓혀 보세요' : ''}</div>}
       <div className="sec-t">{kid.emoji} {kid.name} · 💰 어디서 들어왔나</div>
       <div className="card">{incData.length ? <Donut data={incData} /> : <div className="empty" style={{ padding: 10 }}>아직 수입이 없어요</div>}</div>
       <div className="sec-t">🛍 어디에 썼나</div>
