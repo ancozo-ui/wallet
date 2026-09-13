@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { QCAT, catInfo, won, stars } from './const'
+import { QCAT, catInfo, won, stars, WEEKDAYS, allowanceWeekStart } from './const'
 import { Sheet, Donut, Bars } from './ui'
 import * as api from './api'
 
@@ -12,6 +12,7 @@ export default function Parent({ ctx }) {
   const A = { ...ctx, actor }
 
   const kids = data?.kids || []
+  const allowanceDay = data?.family?.allowance_day ?? 6
   const focusKid = focus || kids[0]?.id
   const kmap = useMemo(() => Object.fromEntries(kids.map((k) => [k.id, k])), [kids])
 
@@ -43,13 +44,14 @@ export default function Parent({ ctx }) {
       {!online && <div className="netbar"><span>📡 인터넷에 연결되어 있지 않아요</span><span className="d">마지막으로 본 정보예요</span></div>}
 
       <div className="body">
-        {tab === 'home' && <Home kids={kids} onGive={() => setSheet({ t: 'give' })}
+        {tab === 'home' && <Home kids={kids} allowanceDay={allowanceDay} onGive={() => setSheet({ t: 'give' })}
           onFine={() => setSheet({ t: 'fine' })} onAdd={() => setSheet({ t: 'kid' })}
           onEdit={(k) => setSheet({ t: 'kid', kid: k })} onFocus={(id) => { setFocus(id); setTab('stats') }}
+          onSettings={() => setSheet({ t: 'settings' })}
           queueCount={queueCount} onQueue={() => setTab('queue')} signOut={ctx.signOut} />}
         {tab === 'queue' && <Queue completions={completions} reqs={reqs} kmap={kmap} A={A} />}
         {tab === 'quests' && <Quests kids={kids} quests={data.quests} onNew={() => setSheet({ t: 'quest' })} />}
-        {tab === 'stats' && <Stats kid={kmap[focusKid]} tx={data.tx.filter((t) => t.member_id === focusKid)} />}
+        {tab === 'stats' && <Stats kid={kmap[focusKid]} tx={data.tx.filter((t) => t.member_id === focusKid)} allowanceDay={allowanceDay} />}
       </div>
 
       <div className="nav">
@@ -65,13 +67,14 @@ export default function Parent({ ctx }) {
       {sheet?.t === 'fine' && <FineSheet kids={kids} A={A} onClose={() => setSheet(null)} />}
       {sheet?.t === 'kid' && <KidSheet kid={sheet.kid} kids={kids} A={A} onClose={() => setSheet(null)} />}
       {sheet?.t === 'quest' && <QuestSheet kids={kids} A={A} onClose={() => setSheet(null)} />}
+      {sheet?.t === 'settings' && <SettingsSheet family={data.family} A={A} onClose={() => setSheet(null)} />}
     </>
   )
 }
 
 function Loading() { return <div className="body"><div className="empty"><span className="e">🐷</span>불러오는 중…</div></div> }
 
-function Home({ kids, onGive, onFine, onAdd, onEdit, onFocus, queueCount, onQueue, signOut }) {
+function Home({ kids, allowanceDay, onGive, onFine, onAdd, onEdit, onFocus, onSettings, queueCount, onQueue, signOut }) {
   return (
     <>
       <div className="sec-t">우리 아이들 <span className="cnt">{kids.length}</span></div>
@@ -99,7 +102,8 @@ function Home({ kids, onGive, onFine, onAdd, onEdit, onFocus, queueCount, onQueu
           <div style={{ marginLeft: 'auto', fontSize: 20, color: 'var(--faint)' }}>›</div>
         </div>
       )}
-      <button className="btn line" style={{ marginTop: 22, color: 'var(--muted)' }} onClick={signOut}>로그아웃</button>
+      <button className="btn line" style={{ marginTop: 14 }} onClick={onSettings}>⚙️ 용돈 지급일 · 매주 {WEEKDAYS[allowanceDay]}요일</button>
+      <button className="btn line" style={{ marginTop: 8, color: 'var(--muted)' }} onClick={signOut}>로그아웃</button>
     </>
   )
 }
@@ -249,14 +253,17 @@ export function QuestCard({ q, child, onApply, onSubmit }) {
   )
 }
 
-export function Stats({ kid, tx }) {
+export function Stats({ kid, tx, allowanceDay = 6 }) {
   const [period, setPeriod] = useState('week')
   if (!kid) return <div className="empty">아이를 선택하세요</div>
 
-  const days = period === 'month' ? 30 : 7
-  const from = Date.now() - days * 86400 * 1000
+  const weekStart = allowanceWeekStart(allowanceDay)
+  const from = period === 'month' ? weekStart.getTime() - 21 * 86400 * 1000 : weekStart.getTime()
   const ftx = tx.filter((t) => new Date(t.created_at).getTime() >= from)
   const inWin = ftx.length
+  const caption = period === 'week'
+    ? `${weekStart.getMonth() + 1}월 ${weekStart.getDate()}일(${WEEKDAYS[allowanceDay]}) 지급일부터`
+    : '최근 4주'
   const spent = ftx.filter((t) => t.sign < 0).reduce((a, t) => a + t.amount, 0)
   const earned = ftx.filter((t) => t.sign > 0).reduce((a, t) => a + t.amount, 0)
 
@@ -281,16 +288,17 @@ export function Stats({ kid, tx }) {
   return (
     <>
       <div className="seg" style={{ margin: '8px 0 4px' }}>
-        <button className={period === 'week' ? 'on p' : ''} onClick={() => setPeriod('week')}>최근 1주</button>
-        <button className={period === 'month' ? 'on p' : ''} onClick={() => setPeriod('month')}>최근 1달</button>
+        <button className={period === 'week' ? 'on p' : ''} onClick={() => setPeriod('week')}>이번 주</button>
+        <button className={period === 'month' ? 'on p' : ''} onClick={() => setPeriod('month')}>최근 4주</button>
       </div>
+      <div style={{ textAlign: 'center', fontSize: 11.5, color: 'var(--faint)', marginBottom: 8 }}>{caption}</div>
       <div className="card" style={{ display: 'flex', gap: 10, padding: 13 }}>
         <div style={{ flex: 1 }}><div className="rt" style={{ fontSize: 11.5, color: 'var(--muted)' }}>모은 돈</div>
           <div style={{ fontFamily: 'var(--disp)', fontSize: 20, color: 'var(--good)' }}>+{won(earned)}</div></div>
         <div style={{ flex: 1 }}><div className="rt" style={{ fontSize: 11.5, color: 'var(--muted)' }}>쓴 돈</div>
           <div style={{ fontFamily: 'var(--disp)', fontSize: 20, color: 'var(--danger)' }}>-{won(spent)}</div></div>
       </div>
-      {!inWin && <div className="empty" style={{ padding: 24 }}>이 기간엔 내역이 없어요<br />{period === 'week' ? '"최근 1달"로 넓혀 보세요' : ''}</div>}
+      {!inWin && <div className="empty" style={{ padding: 24 }}>이 기간엔 내역이 없어요<br />{period === 'week' ? '"최근 4주"로 넓혀 보세요' : ''}</div>}
       <div className="sec-t">{kid.emoji} {kid.name} · 💰 어디서 들어왔나</div>
       <div className="card">{incData.length ? <Donut data={incData} /> : <div className="empty" style={{ padding: 10 }}>아직 수입이 없어요</div>}</div>
       <div className="sec-t">🛍 어디에 썼나</div>
@@ -411,6 +419,24 @@ function KidSheet({ kid, kids, A, onClose }) {
         <div className="field"><label>PIN (4자리 이상)</label><input inputMode="numeric" value={pin} onChange={(e) => setPin(e.target.value)} placeholder="예: 2580" /></div>
       </>}
       <button className="btn pri" onClick={go}>{isNew ? '추가하기' : '저장하기'}</button>
+    </Sheet>
+  )
+}
+
+function SettingsSheet({ family, A, onClose }) {
+  const [day, setDay] = useState(family?.allowance_day ?? 6)
+  const go = async () => {
+    const ok = await A.run(() => api.updateFamily(A.me.family_id, { allowance_day: day }), '용돈 지급일을 저장했어요')
+    if (ok) onClose()
+  }
+  return (
+    <Sheet title="⚙️ 용돈 설정" sub="주간 용돈 지급 요일이에요. 분석의 '이번 주'가 이 요일 기준으로 끊겨요." onClose={onClose}>
+      <div className="field"><label>용돈 지급 요일</label>
+        <div className="chips">
+          {WEEKDAYS.map((w, i) => <button key={i} className={day === i ? 'on' : ''} onClick={() => setDay(i)}>{w}</button>)}
+        </div>
+      </div>
+      <button className="btn pri" onClick={go}>저장하기</button>
     </Sheet>
   )
 }

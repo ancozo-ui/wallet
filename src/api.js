@@ -19,25 +19,31 @@ export const createFamily = (name, parentName) =>
 
 // ---- 데이터 로드 ----
 export async function loadParent() {
-  const [kids, tx, quests, requests] = await Promise.all([
+  const [family, kids, tx, quests, requests] = await Promise.all([
+    supabase.from('families').select('*').limit(1).maybeSingle(),
     supabase.from('members').select('*').eq('role', 'child').order('sort'),
     supabase.from('transactions').select('*').order('created_at', { ascending: false }),
     supabase.from('quests').select('*').order('created_at', { ascending: false }),
     supabase.from('requests').select('*').eq('status', 'pending').order('created_at'),
   ])
-  for (const r of [kids, tx, quests, requests]) if (r.error) throw r.error
-  return { kids: kids.data, tx: tx.data, quests: quests.data, requests: requests.data }
+  for (const r of [family, kids, tx, quests, requests]) if (r.error) throw r.error
+  return { family: family.data, kids: kids.data, tx: tx.data, quests: quests.data, requests: requests.data }
 }
 export async function loadChild(memberId) {
-  const [me, tx, quests, fines, sibs] = await Promise.all([
+  const [family, me, tx, quests, fines, sibs] = await Promise.all([
+    supabase.from('families').select('*').limit(1).maybeSingle(),
     supabase.from('members').select('*').eq('id', memberId).single(),
     supabase.from('transactions').select('*').eq('member_id', memberId).order('created_at', { ascending: false }),
     supabase.from('quests').select('*').eq('member_id', memberId).order('created_at', { ascending: false }),
     supabase.from('requests').select('*').eq('kind', 'fine').eq('status', 'pending'),
     supabase.rpc('list_siblings'),
   ])
-  for (const r of [me, tx, quests, fines, sibs]) if (r.error) throw r.error
-  return { me: me.data, tx: tx.data, quests: quests.data, fines: fines.data, siblings: sibs.data || [] }
+  for (const r of [family, me, tx, quests, fines, sibs]) if (r.error) throw r.error
+  return { family: family.data, me: me.data, tx: tx.data, quests: quests.data, fines: fines.data, siblings: sibs.data || [] }
+}
+export async function updateFamily(id, fields) {
+  const { error } = await supabase.from('families').update(fields).eq('id', id)
+  if (error) throw error
 }
 
 // ---- 부모 행위 ----

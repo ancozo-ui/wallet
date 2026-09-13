@@ -8,6 +8,16 @@ export const QCAT = {
   study:{e:'📚',n:'학습',c:'q-study'}, help:{e:'🧹',n:'도움',c:'q-help'}, health:{e:'🏃',n:'건강',c:'q-health'},
 }
 export const EMOJIS = ['🦊','🐰','🐱','🐶','🐻','🐼','🐯','🦁','🐨','🐸','🐵','🦄','🐹','🐥']
+export const WEEKDAYS = ['일','월','화','수','목','금','토']
+
+// 지급 요일(0=일..6=토) 기준, 가장 최근 지급일의 00:00 (Date)
+export function allowanceWeekStart(day) {
+  const now = new Date()
+  const d = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const diff = (d.getDay() - day + 7) % 7
+  d.setDate(d.getDate() - diff)
+  return d
+}
 
 export const won = n => (n ?? 0).toLocaleString('ko-KR')
 export const catInfo = c => CATS[c] || { e:'💸', n:c || '지출' }

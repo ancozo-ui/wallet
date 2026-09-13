@@ -31,7 +31,7 @@ export default function Child({ ctx }) {
         {tab === 'spend' && <Spend me={me} onTime={(k) => setSheet({ t: 'time', kind: k })} onBuy={(c) => setSheet({ t: 'buy', cat: c })} />}
         {tab === 'quests' && <Quests quests={data.quests} run={run}
           onSubmit={(q) => setSheet({ t: 'submit', q })} onPropose={() => setSheet({ t: 'propose' })} />}
-        {tab === 'stats' && <Stats kid={me} tx={data.tx} />}
+        {tab === 'stats' && <Stats kid={me} tx={data.tx} allowanceDay={data.family?.allowance_day ?? 6} />}
       </div>
 
       <div className="nav">

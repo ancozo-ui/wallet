@@ -59,7 +59,12 @@ supabase functions deploy create-child
 
 ### B. 대시보드에서 수동
 1. SQL Editor 에 `migrations/0001_init.sql` 전체 붙여넣고 실행.
-2. Edge Functions 에서 `create-child` 생성 후 `functions/create-child/index.ts` 내용 배포.
+2. 이어서 `migrations/0002_allowance_day.sql` 도 실행(주간 용돈 지급 요일 설정).
+3. Edge Functions 에서 `create-child` 생성 후 `functions/create-child/index.ts` 내용 배포.
+
+> 이미 0001 을 적용한 프로젝트라면 **0002 만 추가로 실행**하면 된다.
+> `families.allowance_day`(0=일..6=토, 기본 토) + 부모용 families update 정책을 추가한다.
+> 미적용 시에도 분석은 토요일 기준으로 동작하지만, 앱에서 지급 요일 변경은 저장되지 않는다.
 
 ## 가입 → 첫 세팅 흐름
 
