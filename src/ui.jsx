@@ -13,6 +13,13 @@ export function Sheet({ title, sub, children, onClose }) {
   )
 }
 
+// 화면(시트)이 열려 있는 동안 유지되는 고유 표식.
+// 네트워크가 끊겨 사용자가 다시 눌러도 같은 표식이라 서버에 두 번 저장되지 않는다.
+export function useIdemToken() {
+  const [t] = useState(() => (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`))
+  return t
+}
+
 // 연타로 같은 요청이 두 번 만들어지는 걸 막는 제출 버튼
 export function ActionButton({ className, onClick, children, busyLabel = '처리 중…', ...rest }) {
   const [busy, setBusy] = useState(false)

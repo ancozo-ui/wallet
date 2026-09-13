@@ -57,15 +57,16 @@ export async function verifyPassword(password) {
 }
 
 // ---- 부모 행위 ----
-export const give = (member, amount, memo, actor) =>
-  rpc('give_allowance', { p_member: member, p_amount: amount, p_memo: memo, p_actor: actor, p_token: tok() })
+// token 은 화면에서 만든 고유 표식(useIdemToken). 재시도해도 서버가 한 번만 처리한다.
+export const give = (member, amount, memo, actor, token) =>
+  rpc('give_allowance', { p_member: member, p_amount: amount, p_memo: memo, p_actor: actor, p_token: token || tok() })
 export const confirmQuest = (q, bonus, actor) =>
   rpc('confirm_quest', { p_quest: q, p_bonus: bonus, p_actor: actor, p_token: tok() })
 export const approveRequest = (id, actor) =>
   rpc('approve_request', { p_request: id, p_actor: actor, p_token: tok() })
 export const rejectRequest = (id) => rpc('reject_request', { p_request: id })
-export const issueFine = (member, amount, reason, actor) =>
-  rpc('issue_fine', { p_member: member, p_amount: amount, p_reason: reason, p_actor: actor, p_token: tok() })
+export const issueFine = (member, amount, reason, actor, token) =>
+  rpc('issue_fine', { p_member: member, p_amount: amount, p_reason: reason, p_actor: actor, p_token: token || tok() })
 
 export async function createQuest(familyId, member, title, cat, reward, actor) {
   const { error } = await supabase.from('quests').insert({
@@ -93,9 +94,17 @@ export const applyQuest = (id) => rpc('apply_quest', { p_quest: id })
 export const submitQuest = (id, qty, diff) => rpc('submit_quest', { p_quest: id, p_qty: qty, p_diff: diff })
 
 export async function createRequest(familyId, memberId, payload) {
-  const { error } = await supabase.from('requests').insert({
-    family_id: familyId, member_id: memberId, ...payload,
-  })
+  const row = { family_id: familyId, member_id: memberId, ...payload }
+  let { error } = await supabase.from('requests').insert(row)
+
+  // 마이그레이션 0004(client_token 컬럼)가 아직 적용되지 않은 DB면 표식 없이 한 번 더 시도한다.
+  if (error && (error.code === '42703' || error.code === 'PGRST204')) {
+    const { client_token, ...withoutToken } = row // eslint-disable-line no-unused-vars
+    ;({ error } = await supabase.from('requests').insert(withoutToken))
+  }
+
+  // 같은 표식의 요청이 이미 저장돼 있음 = 끊긴 통신 후 재시도. 중복 저장 대신 성공 처리.
+  if (error && error.code === '23505') return
   if (error) throw error
 }
 

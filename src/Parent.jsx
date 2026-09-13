@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { QCAT, catInfo, won, stars, WEEKDAYS, allowanceWeekStart, txIcon } from './const'
-import { Sheet, Donut, Bars, ActionButton } from './ui'
+import { Sheet, Donut, Bars, ActionButton, useIdemToken } from './ui'
 import * as api from './api'
 
 export default function Parent({ ctx }) {
@@ -343,12 +343,13 @@ export function Stats({ kid, tx, allowanceDay = 6, onDelete }) {
 
 // ---------------- Sheets ----------------
 function GiveSheet({ kids, A, onClose }) {
+  const token = useIdemToken()
   const [kid, setKid] = useState(kids[0]?.id || '')
   const [amt, setAmt] = useState('')
   const [memo, setMemo] = useState('')
   const go = async () => {
     if (!+amt) return
-    const ok = await A.run(() => api.give(kid, +amt, memo, A.actor), `${A.actor}가 용돈을 지급했어요 🎁`)
+    const ok = await A.run(() => api.give(kid, +amt, memo, A.actor, token), `${A.actor}가 용돈을 지급했어요 🎁`)
     if (ok) onClose()
   }
   return (
@@ -365,12 +366,13 @@ function GiveSheet({ kids, A, onClose }) {
 }
 
 function FineSheet({ kids, A, onClose }) {
+  const token = useIdemToken()
   const [kid, setKid] = useState(kids[0]?.id || '')
   const [amt, setAmt] = useState('')
   const [reason, setReason] = useState('')
   const go = async () => {
     if (!+amt) return
-    const ok = await A.run(() => api.issueFine(kid, +amt, reason, A.actor), `${A.actor}가 벌금을 부과했어요`)
+    const ok = await A.run(() => api.issueFine(kid, +amt, reason, A.actor, token), `${A.actor}가 벌금을 부과했어요`)
     if (ok) onClose()
   }
   return (

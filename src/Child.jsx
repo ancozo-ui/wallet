@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { CATS, BUY_CATS, QCAT, txIcon, won } from './const'
-import { Sheet, Stepper, Stars, ActionButton } from './ui'
+import { Sheet, Stepper, Stars, ActionButton, useIdemToken } from './ui'
 import { QuestCard, Stats } from './Parent'
 import * as api from './api'
 
@@ -169,6 +169,7 @@ function Quests({ quests, run, onSubmit, onPropose }) {
 
 // ---------- sheets ----------
 function SendSheet({ me, available, siblings, ctx, onClose }) {
+  const token = useIdemToken()
   const [to, setTo] = useState(siblings[0]?.id || '')
   const [amt, setAmt] = useState('')
   const [memo, setMemo] = useState('')
@@ -176,7 +177,7 @@ function SendSheet({ me, available, siblings, ctx, onClose }) {
   const go = async () => {
     if (!+amt) return
     if (+amt > available) { ctx.toast(`쓸 수 있는 돈이 부족해요 (지금 ${won(available)}원)`); return }
-    const ok = await ctx.run(() => api.createRequest(me.family_id, me.id, { kind: 'transfer', to_member_id: to, amount: +amt, memo: memo || '용돈 선물' }), '보내기 요청 완료! 부모님 확인을 기다려요 💌')
+    const ok = await ctx.run(() => api.createRequest(me.family_id, me.id, { kind: 'transfer', to_member_id: to, amount: +amt, memo: memo || '용돈 선물', client_token: token }), '보내기 요청 완료! 부모님 확인을 기다려요 💌')
     if (ok) onClose()
   }
   return (
@@ -193,13 +194,14 @@ function SendSheet({ me, available, siblings, ctx, onClose }) {
 }
 
 function TimeSheet({ me, available, kind, ctx, onClose }) {
+  const token = useIdemToken()
   const [hours, setHours] = useState(1)
   const amt = Math.round(me.rate * hours)
   const label = kind === 'game' ? '🎮 게임 이용권' : '📺 TV 이용권'
   const tooMuch = amt > available
   const go = async () => {
     if (tooMuch) { ctx.toast(`쓸 수 있는 돈이 부족해요 (지금 ${won(available)}원)`); return }
-    const ok = await ctx.run(() => api.createRequest(me.family_id, me.id, { kind: 'spend', category: kind, amount: amt, memo: `${hours % 1 ? hours.toFixed(1) : hours}시간 이용`, convert: false }), '요청을 보냈어요! 부모님 확인을 기다려요 ⏳')
+    const ok = await ctx.run(() => api.createRequest(me.family_id, me.id, { kind: 'spend', category: kind, amount: amt, memo: `${hours % 1 ? hours.toFixed(1) : hours}시간 이용`, convert: false, client_token: token }), '요청을 보냈어요! 부모님 확인을 기다려요 ⏳')
     if (ok) onClose()
   }
   return (
@@ -213,13 +215,14 @@ function TimeSheet({ me, available, kind, ctx, onClose }) {
 }
 
 function BuySheet({ me, available, cat, ctx, onClose }) {
+  const token = useIdemToken()
   const ci = CATS[cat]
   const [amt, setAmt] = useState('')
   const [memo, setMemo] = useState('')
   const go = async () => {
     if (!+amt) return
     if (+amt > available) { ctx.toast(`쓸 수 있는 돈이 부족해요 (지금 ${won(available)}원)`); return }
-    const ok = await ctx.run(() => api.createRequest(me.family_id, me.id, { kind: 'spend', category: cat, amount: +amt, memo: memo || `${ci.n} 구매`, convert: true }), '요청을 보냈어요! 부모님 확인을 기다려요 ⏳')
+    const ok = await ctx.run(() => api.createRequest(me.family_id, me.id, { kind: 'spend', category: cat, amount: +amt, memo: memo || `${ci.n} 구매`, convert: true, client_token: token }), '요청을 보냈어요! 부모님 확인을 기다려요 ⏳')
     if (ok) onClose()
   }
   return (
@@ -251,12 +254,13 @@ function SubmitSheet({ q, ctx, onClose }) {
 }
 
 function ProposeSheet({ me, ctx, onClose }) {
+  const token = useIdemToken()
   const [title, setTitle] = useState('')
   const [cat, setCat] = useState('help')
   const [reward, setReward] = useState('')
   const go = async () => {
     if (!title.trim() || !+reward) return
-    const ok = await ctx.run(() => api.createRequest(me.family_id, me.id, { kind: 'proposal', title: title.trim(), category: cat, reward: +reward }), '제안을 보냈어요! 부모님 승인을 기다려요 ✋')
+    const ok = await ctx.run(() => api.createRequest(me.family_id, me.id, { kind: 'proposal', title: title.trim(), category: cat, reward: +reward, client_token: token }), '제안을 보냈어요! 부모님 승인을 기다려요 ✋')
     if (ok) onClose()
   }
   return (
