@@ -50,7 +50,8 @@ export default function Parent({ ctx }) {
           onSettings={() => setSheet({ t: 'settings' })}
           queueCount={queueCount} onQueue={() => setTab('queue')} signOut={ctx.signOut} />}
         {tab === 'queue' && <Queue completions={completions} reqs={reqs} kmap={kmap} A={A} />}
-        {tab === 'quests' && <Quests kids={kids} quests={data.quests} onNew={() => setSheet({ t: 'quest' })} />}
+        {tab === 'quests' && <Quests kids={kids} quests={data.quests} onNew={() => setSheet({ t: 'quest' })}
+          onEdit={(q) => setSheet({ t: 'questedit', quest: q })} />}
         {tab === 'stats' && <Stats kid={kmap[focusKid]} tx={data.tx.filter((t) => t.member_id === focusKid)} allowanceDay={allowanceDay} onDelete={(t) => setSheet({ t: 'deltx', tx: t })} />}
       </div>
 
@@ -68,6 +69,7 @@ export default function Parent({ ctx }) {
       {sheet?.t === 'kid' && <KidSheet kid={sheet.kid} kids={kids} A={A} onClose={() => setSheet(null)} />}
       {sheet?.t === 'quest' && <QuestSheet kids={kids} A={A} onClose={() => setSheet(null)} />}
       {sheet?.t === 'settings' && <SettingsSheet family={data.family} A={A} onClose={() => setSheet(null)} />}
+      {sheet?.t === 'questedit' && <QuestEditSheet q={sheet.quest} A={A} onClose={() => setSheet(null)} />}
       {sheet?.t === 'deltx' && <DeleteTxSheet tx={sheet.tx} A={A} onClose={() => setSheet(null)} />}
     </>
   )
@@ -214,17 +216,19 @@ function ConfirmSheet({ q, A, onClose }) {
   )
 }
 
-function Quests({ kids, quests, onNew }) {
+function Quests({ kids, quests, onNew, onEdit }) {
   return (
     <>
-      <button className="btn pri" onClick={onNew} style={{ margin: '6px 0 14px' }}>＋ 새 퀘스트 등록</button>
+      <button className="btn pri" onClick={onNew} style={{ margin: '6px 0 10px' }}>＋ 새 퀘스트 등록</button>
+      <div className="msub" style={{ textAlign: 'center' }}>
+        목록의 퀘스트는 계속 남아 반복 도전할 수 있어요 · ✏️ 로 보상 수정·삭제</div>
       {kids.map((k) => {
         const qs = quests.filter((q) => q.member_id === k.id)
         return (
           <div key={k.id}>
             <div className="sec-t">{k.emoji} {k.name} <span className="cnt">{qs.length}</span></div>
             {qs.length === 0 && <div className="empty" style={{ padding: 18 }}>아직 퀘스트가 없어요</div>}
-            {qs.map((q) => <QuestCard key={q.id} q={q} />)}
+            {qs.map((q) => <QuestCard key={q.id} q={q} onEdit={onEdit} />)}
           </div>
         )
       })}
@@ -232,7 +236,7 @@ function Quests({ kids, quests, onNew }) {
   )
 }
 
-export function QuestCard({ q, child, onApply, onSubmit }) {
+export function QuestCard({ q, child, onApply, onSubmit, onEdit }) {
   const qc = QCAT[q.category] || QCAT.help
   const rw = q.reward_type === 'unit' ? `${q.unit || '개'}당 ${won(q.reward)}원` : `${won(q.reward)}원`
   const badge = { open: ['b-open', '🟢 모집중'], prog: ['b-prog', '🔵 진행중'], done_sub: ['b-wait', '⏳ 확인 대기중'], done: ['b-done', '✅ 완료'], expired: ['b-done', '⌛ 만료'] }[q.status]
@@ -251,6 +255,7 @@ export function QuestCard({ q, child, onApply, onSubmit }) {
           <button className="btn coin sm" style={{ width: '100%', marginTop: 8 }} onClick={() => onSubmit(q)}>다 했어요 ✓</button>
         </>}
       </div>
+      {onEdit && <button className="delbtn" style={{ marginLeft: 0 }} onClick={() => onEdit(q)} title="보상 수정·삭제">✏️</button>}
     </div>
   )
 }
@@ -446,6 +451,50 @@ function KidSheet({ kid, kids, A, onClose }) {
         <div className="field"><label>PIN (4자리 이상)</label><input inputMode="numeric" value={pin} onChange={(e) => setPin(e.target.value)} placeholder="예: 2580" /></div>
       </>}
       <ActionButton className="btn pri" onClick={go}>{isNew ? '추가하기' : '저장하기'}</ActionButton>
+    </Sheet>
+  )
+}
+
+function QuestEditSheet({ q, A, onClose }) {
+  const [title, setTitle] = useState(q.title)
+  const [cat, setCat] = useState(q.category)
+  const [reward, setReward] = useState(q.reward)
+  const [confirmDel, setConfirmDel] = useState(false)
+  const unitLabel = q.reward_type === 'unit' ? `${q.unit || '개'}당 보상 (원)` : '보상 (원)'
+  const save = async () => {
+    const ok = await A.run(
+      () => api.updateQuest(q.id, { title: title.trim() || q.title, category: cat, reward: +reward || 0 }),
+      '퀘스트를 수정했어요')
+    if (ok) onClose()
+  }
+  const del = async () => {
+    const ok = await A.run(() => api.deleteQuest(q.id), '퀘스트를 목록에서 지웠어요')
+    if (ok) onClose()
+  }
+  return (
+    <Sheet title="✏️ 퀘스트 수정" sub="목록에 계속 남는 퀘스트예요. 보상을 바꾸거나 목록에서 뺄 수 있어요." onClose={onClose}>
+      <div className="field"><label>무슨 일?</label>
+        <input value={title} onChange={(e) => setTitle(e.target.value)} /></div>
+      <div className="field"><label>종류</label>
+        <div className="chips">
+          {Object.entries(QCAT).map(([k, c]) => (
+            <button key={k} className={cat === k ? 'on' : ''} onClick={() => setCat(k)}>{c.e} {c.n}</button>
+          ))}
+        </div></div>
+      <div className="field"><label>{unitLabel}</label>
+        <input type="number" inputMode="numeric" value={reward} onChange={(e) => setReward(e.target.value)} /></div>
+      <ActionButton className="btn pri" onClick={save}>저장하기</ActionButton>
+      {!confirmDel ? (
+        <button className="btn line" style={{ marginTop: 8, color: 'var(--danger)' }} onClick={() => setConfirmDel(true)}>
+          목록에서 삭제</button>
+      ) : (
+        <div className="btn-row" style={{ marginTop: 8 }}>
+          <button className="btn line" onClick={() => setConfirmDel(false)}>취소</button>
+          <ActionButton className="btn danger" onClick={del}>정말 삭제</ActionButton>
+        </div>
+      )}
+      <div className="msub" style={{ marginTop: 10, textAlign: 'center' }}>
+        삭제해도 이미 지급된 보상 내역은 그대로 남아요</div>
     </Sheet>
   )
 }

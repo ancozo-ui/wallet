@@ -19,6 +19,7 @@ export const createFamily = (name, parentName) =>
 
 // ---- 데이터 로드 ----
 export async function loadParent() {
+  await expireQuests()
   const [family, kids, tx, quests, requests] = await Promise.all([
     supabase.from('families').select('*').limit(1).maybeSingle(),
     supabase.from('members').select('*').eq('role', 'child').order('sort'),
@@ -30,6 +31,7 @@ export async function loadParent() {
   return { family: family.data, kids: kids.data, tx: tx.data, quests: quests.data, requests: requests.data }
 }
 export async function loadChild(memberId) {
+  await expireQuests()
   const [family, me, tx, quests, fines, mypend, sibs] = await Promise.all([
     supabase.from('families').select('*').limit(1).maybeSingle(),
     supabase.from('members').select('*').eq('id', memberId).single(),
@@ -75,6 +77,20 @@ export async function createQuest(familyId, member, title, cat, reward, actor) {
   })
   if (error) throw error
 }
+export async function updateQuest(id, fields) {
+  const { error } = await supabase.from('quests').update(fields).eq('id', id)
+  if (error) throw error
+}
+export async function deleteQuest(id) {
+  const { error } = await supabase.from('quests').delete().eq('id', id)
+  if (error) throw error
+}
+// 자정(한국시간)을 넘긴 도전을 다시 '모집중'으로. 앱을 열 때마다 호출해 별도 스케줄러 없이 처리.
+async function expireQuests() {
+  const { error } = await supabase.rpc('expire_quests')
+  if (error) console.warn('expire_quests skipped:', error.message)
+}
+
 export async function updateKid(id, fields) {
   const { error } = await supabase.from('members').update(fields).eq('id', id)
   if (error) throw error
