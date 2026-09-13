@@ -249,12 +249,21 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
 @keyframes pop{from{transform:scale(.5);opacity:0}to{transform:scale(1);opacity:1}}
 .celebrate .big{font-family:var(--disp);font-size:38px;color:var(--coin-ink);margin:6px 0 2px}
 .celebrate .em{font-size:50px}
-.coin{position:fixed;top:-30px;font-size:26px;z-index:59;pointer-events:none;animation:fall linear forwards}
+.fallcoin{position:fixed;top:-30px;font-size:26px;z-index:59;pointer-events:none;animation:fall linear forwards}
 @keyframes fall{to{transform:translateY(104vh) rotate(540deg);opacity:.7}}
 @media (prefers-reduced-motion:reduce){
-  .sheet,.celebrate .msg{animation:none}.coin{display:none}
+  .sheet,.celebrate .msg{animation:none}.fallcoin{display:none}
 }
 .foot{text-align:center;font-size:11px;color:var(--faint);margin-top:14px;line-height:1.6}
+.sblock{display:flex;align-items:center;gap:11px;padding:12px 13px;border-radius:var(--r-sm);margin-bottom:10px;
+  box-shadow:var(--shadow-sm);border:1px solid var(--line);background:var(--surface);width:100%;text-align:left}
+.sblock:active{transform:translateY(1px)}
+.sblock .em{font-size:21px;flex-shrink:0}
+.sblock .t{font-weight:700;font-size:13.5px}
+.sblock .d{font-size:11.5px;color:var(--muted);margin-top:1px}
+.sblock .rt{margin-left:auto;font-weight:800;flex-shrink:0}
+.sblock.fine{background:var(--danger-soft);border-color:transparent}
+.sblock.fine .rt{color:var(--danger)}
 .toast{position:fixed;bottom:26px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--bg);
   padding:12px 18px;border-radius:14px;font-size:13px;font-weight:600;z-index:70;box-shadow:var(--shadow);
   max-width:90%;text-align:center}

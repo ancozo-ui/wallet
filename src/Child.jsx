@@ -12,8 +12,10 @@ export default function Child({ ctx }) {
 
   const me = data.me
   const fines = data.fines || []
+  const activeQuests = (data.quests || []).filter((q) => q.status === 'prog' || q.status === 'done_sub')
   const reserved = (data.myPending || []).reduce((a, r) => a + (r.amount || 0), 0)
   const available = Math.max(0, me.balance - reserved)
+  const ackFineNow = (f) => run(() => api.ackFine(f.id), `벌금 ${won(f.amount)}원이 빠져나갔어요`)
 
   return (
     <>
@@ -23,13 +25,14 @@ export default function Child({ ctx }) {
           <div><h1>{me.name}의 지갑</h1><div className="sub">나의 용돈 나라</div></div>
         </div>
         <div className="sp" />
-        <button className="bell" onClick={() => setSheet({ t: 'alerts' })}>🔔{fines.length ? <span className="dot">{fines.length}</span> : null}</button>
       </div>
 
       {!online && <div className="netbar"><span>📡 인터넷에 연결되어 있지 않아요</span><span className="d">마지막으로 본 정보예요</span></div>}
 
       <div className="body">
-        {tab === 'home' && <Home me={me} tx={data.tx} onSpend={() => setTab('spend')} onSend={() => setSheet({ t: 'send' })} />}
+        {tab === 'home' && <Home me={me} tx={data.tx} fines={fines} activeQuests={activeQuests}
+          onAck={ackFineNow} onGoQuests={() => setTab('quests')}
+          onSpend={() => setTab('spend')} onSend={() => setSheet({ t: 'send' })} />}
         {tab === 'spend' && <Spend me={me} available={available} reserved={reserved} onTime={(k) => setSheet({ t: 'time', kind: k })} onBuy={(c) => setSheet({ t: 'buy', cat: c })} />}
         {tab === 'quests' && <Quests quests={data.quests} run={run}
           onSubmit={(q) => setSheet({ t: 'submit', q })} onPropose={() => setSheet({ t: 'propose' })} />}
@@ -42,7 +45,6 @@ export default function Child({ ctx }) {
         ))}
       </div>
 
-      {sheet?.t === 'alerts' && <AlertsSheet fines={fines} ctx={ctx} onClose={() => setSheet(null)} />}
       {sheet?.t === 'send' && <SendSheet me={me} available={available} siblings={data.siblings} ctx={ctx} onClose={() => setSheet(null)} />}
       {sheet?.t === 'time' && <TimeSheet me={me} available={available} kind={sheet.kind} ctx={ctx} onClose={() => setSheet(null)} />}
       {sheet?.t === 'buy' && <BuySheet me={me} available={available} cat={sheet.cat} ctx={ctx} onClose={() => setSheet(null)} />}
@@ -52,11 +54,32 @@ export default function Child({ ctx }) {
   )
 }
 
-function Home({ me, tx, onSpend, onSend }) {
+function Home({ me, tx, fines, activeQuests, onAck, onGoQuests, onSpend, onSend }) {
   const inc = tx.filter((t) => t.sign > 0).reduce((a, t) => a + t.amount, 0)
   const out = tx.filter((t) => t.sign < 0).reduce((a, t) => a + t.amount, 0)
+  const hasNews = fines.length > 0 || activeQuests.length > 0
   return (
     <>
+      {hasNews && <div className="sec-t">📌 지금 상황</div>}
+      {fines.map((f) => (
+        <button className="sblock fine" key={f.id} onClick={() => onAck(f)}>
+          <span className="em">⚠️</span>
+          <div><div className="t">벌금 · {f.reason}</div><div className="d">눌러서 확인하고 차감해요</div></div>
+          <span className="rt">-{won(f.amount)}원</span>
+        </button>
+      ))}
+      {activeQuests.map((q) => {
+        const qc = QCAT[q.category] || QCAT.help
+        const prog = q.status === 'prog'
+        return (
+          <button className="sblock" key={q.id} onClick={onGoQuests}>
+            <span className="em">{prog ? '🔵' : '⏳'}</span>
+            <div><div className="t">{qc.e} {q.title}</div>
+              <div className="d">{prog ? '진행중 · 오늘 밤 12시까지 · 눌러서 완료하기' : '완료 제출함 · 부모님 확인 대기중'}</div></div>
+            <span className="rt" style={{ color: 'var(--coin-ink)' }}>🏆 {won(q.reward)}</span>
+          </button>
+        )
+      })}
       <div className="card balance">
         <div className="lab">지금 내 용돈</div>
         <div><span className="amt">{won(me.balance)}</span><span className="won"> 원</span></div>
@@ -129,22 +152,6 @@ function Quests({ quests, run, onSubmit, onPropose }) {
 }
 
 // ---------- sheets ----------
-function AlertsSheet({ fines, ctx, onClose }) {
-  return (
-    <Sheet title="🔔 알림" sub="확인이 필요한 일이에요" onClose={onClose}>
-      {fines.length === 0 && <div className="empty" style={{ padding: 20 }}>새 알림이 없어요 🌿</div>}
-      {fines.map((p) => (
-        <div className="req fine" key={p.id}>
-          <div className="rk" style={{ color: 'var(--danger)' }}>{p.by_actor || '부모'}가 부과한 벌금</div>
-          <div className="fine-row"><div className="fine-reason">{p.reason}</div><div className="fine-amt">-{won(p.amount)}원</div></div>
-          <button className="btn danger sm" style={{ width: '100%' }}
-            onClick={async () => { const ok = await ctx.run(() => api.ackFine(p.id), `벌금 ${won(p.amount)}원이 빠져나갔어요`); if (ok) onClose() }}>확인했어요</button>
-        </div>
-      ))}
-    </Sheet>
-  )
-}
-
 function SendSheet({ me, available, siblings, ctx, onClose }) {
   const [to, setTo] = useState(siblings[0]?.id || '')
   const [amt, setAmt] = useState('')

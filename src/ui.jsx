@@ -96,7 +96,7 @@ export function Celebrate({ amount, onDone }) {
         </div>
       </div>
       {coins.map((c, i) => (
-        <div className="coin" key={i}
+        <div className="fallcoin" key={i}
           style={{ left: `${c.left}vw`, animationDuration: `${c.dur}s`, animationDelay: `${c.delay}s` }}>{c.e}</div>
       ))}
     </>
