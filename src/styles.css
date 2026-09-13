@@ -127,6 +127,9 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
 .kidcard .bal span{font-size:12px;color:var(--muted)}
 .editkid{width:34px;height:34px;border-radius:10px;background:var(--surface-2);font-size:15px;flex-shrink:0;
   display:flex;align-items:center;justify-content:center}
+.delbtn{width:30px;height:30px;border-radius:8px;background:var(--surface-2);font-size:13px;flex-shrink:0;
+  margin-left:8px;display:flex;align-items:center;justify-content:center}
+.delbtn:active{transform:translateY(1px)}
 
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border-radius:12px;
   padding:12px 15px;font-weight:700;font-size:14px;transition:.12s;width:100%}

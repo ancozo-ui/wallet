@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { QCAT, catInfo, won, stars, WEEKDAYS, allowanceWeekStart } from './const'
+import { QCAT, catInfo, won, stars, WEEKDAYS, allowanceWeekStart, txIcon } from './const'
 import { Sheet, Donut, Bars } from './ui'
 import * as api from './api'
 
@@ -51,7 +51,7 @@ export default function Parent({ ctx }) {
           queueCount={queueCount} onQueue={() => setTab('queue')} signOut={ctx.signOut} />}
         {tab === 'queue' && <Queue completions={completions} reqs={reqs} kmap={kmap} A={A} />}
         {tab === 'quests' && <Quests kids={kids} quests={data.quests} onNew={() => setSheet({ t: 'quest' })} />}
-        {tab === 'stats' && <Stats kid={kmap[focusKid]} tx={data.tx.filter((t) => t.member_id === focusKid)} allowanceDay={allowanceDay} />}
+        {tab === 'stats' && <Stats kid={kmap[focusKid]} tx={data.tx.filter((t) => t.member_id === focusKid)} allowanceDay={allowanceDay} onDelete={(t) => setSheet({ t: 'deltx', tx: t })} />}
       </div>
 
       <div className="nav">
@@ -68,6 +68,7 @@ export default function Parent({ ctx }) {
       {sheet?.t === 'kid' && <KidSheet kid={sheet.kid} kids={kids} A={A} onClose={() => setSheet(null)} />}
       {sheet?.t === 'quest' && <QuestSheet kids={kids} A={A} onClose={() => setSheet(null)} />}
       {sheet?.t === 'settings' && <SettingsSheet family={data.family} A={A} onClose={() => setSheet(null)} />}
+      {sheet?.t === 'deltx' && <DeleteTxSheet tx={sheet.tx} A={A} onClose={() => setSheet(null)} />}
     </>
   )
 }
@@ -253,7 +254,7 @@ export function QuestCard({ q, child, onApply, onSubmit }) {
   )
 }
 
-export function Stats({ kid, tx, allowanceDay = 6 }) {
+export function Stats({ kid, tx, allowanceDay = 6, onDelete }) {
   const [period, setPeriod] = useState('week')
   if (!kid) return <div className="empty">아이를 선택하세요</div>
 
@@ -312,6 +313,28 @@ export function Stats({ kid, tx, allowanceDay = 6 }) {
             <span className="vv">{won(d.total)}원</span></div>
         }) : <div className="empty" style={{ padding: 10 }}>아직 퀘스트로 번 돈이 없어요</div>}
       </div>
+
+      {onDelete && (
+        <>
+          <div className="sec-t">🧾 내역 관리 <span className="cnt">삭제 가능</span></div>
+          <div className="card" style={{ padding: '5px 13px' }}>
+            {ftx.length === 0 && <div className="empty" style={{ padding: 14 }}>이 기간 내역이 없어요</div>}
+            {ftx.map((t) => {
+              const [ic, cl] = txIcon(t)
+              return (
+                <div className="tx" key={t.id}>
+                  <div className={'ti ' + cl}>{ic}</div>
+                  <div style={{ minWidth: 0 }}><div className="tl">{t.label}</div>
+                    <div className="td">{new Date(t.created_at).toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric' })}{t.by_actor ? ` · ${t.by_actor}` : ''}</div></div>
+                  <div className={'tv ' + (t.sign > 0 ? 'plus' : 'minus')} style={{ marginLeft: 'auto' }}>{t.sign > 0 ? '+' : '-'}{won(t.amount)}</div>
+                  <button className="delbtn" onClick={() => onDelete(t)} title="삭제">🗑</button>
+                </div>
+              )
+            })}
+          </div>
+          <div className="msub" style={{ textAlign: 'center' }}>삭제하면 잔액도 함께 되돌아가요 · 비밀번호 확인 필요</div>
+        </>
+      )}
     </>
   )
 }
@@ -419,6 +442,33 @@ function KidSheet({ kid, kids, A, onClose }) {
         <div className="field"><label>PIN (4자리 이상)</label><input inputMode="numeric" value={pin} onChange={(e) => setPin(e.target.value)} placeholder="예: 2580" /></div>
       </>}
       <button className="btn pri" onClick={go}>{isNew ? '추가하기' : '저장하기'}</button>
+    </Sheet>
+  )
+}
+
+function DeleteTxSheet({ tx, A, onClose }) {
+  const [pw, setPw] = useState('')
+  const [busy, setBusy] = useState(false)
+  const back = tx.sign > 0
+    ? `아이 잔액에서 ${won(tx.amount)}원이 다시 회수돼요`
+    : `아이 잔액에 ${won(tx.amount)}원이 돌아가요`
+  const go = async () => {
+    if (!pw) return
+    setBusy(true)
+    try { await api.verifyPassword(pw) }
+    catch (e) { A.toast('⚠️ ' + (e.message || '비밀번호 오류')); setBusy(false); return }
+    const ok = await A.run(() => api.deleteTransaction(tx.id), '내역을 삭제하고 잔액을 되돌렸어요')
+    setBusy(false)
+    if (ok) onClose()
+  }
+  return (
+    <Sheet title="🗑 내역 삭제" sub="대시보드 정확성을 위한 관리 기능이에요" onClose={onClose}>
+      <div className="calc" style={{ background: 'var(--surface-2)', color: 'var(--ink)' }}>
+        {tx.label} · {tx.sign > 0 ? '+' : '-'}{won(tx.amount)}원</div>
+      <div className="msub" style={{ marginTop: 8 }}>{back}</div>
+      <div className="field" style={{ marginTop: 12 }}><label>부모 비밀번호 확인</label>
+        <input type="password" value={pw} onChange={(e) => setPw(e.target.value)} placeholder="비밀번호를 한 번 더 입력" /></div>
+      <button className="btn danger" disabled={busy} onClick={go}>{busy ? '확인 중…' : '삭제하기'}</button>
     </Sheet>
   )
 }

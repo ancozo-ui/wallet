@@ -46,6 +46,15 @@ export async function updateFamily(id, fields) {
   const { error } = await supabase.from('families').update(fields).eq('id', id)
   if (error) throw error
 }
+export const deleteTransaction = (id) => rpc('delete_transaction', { p_tx: id })
+
+// 부모 비밀번호 재확인 (민감 작업 전). 틀리면 throw.
+export async function verifyPassword(password) {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user?.email) throw new Error('로그인 정보를 찾을 수 없어요')
+  const { error } = await supabase.auth.signInWithPassword({ email: user.email, password })
+  if (error) throw new Error('비밀번호가 맞지 않아요')
+}
 
 // ---- 부모 행위 ----
 export const give = (member, amount, memo, actor) =>
