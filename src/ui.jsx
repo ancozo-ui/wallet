@@ -153,7 +153,7 @@ export function Toast({ msg }) {
   return <div className="toast">{msg}</div>
 }
 
-export function Celebrate({ amount, onDone }) {
+export function Celebrate({ amount, label, onDone }) {
   const [coins] = useState(() => {
     const reduce = matchMedia('(prefers-reduced-motion:reduce)').matches
     if (reduce) return []
@@ -168,7 +168,7 @@ export function Celebrate({ amount, onDone }) {
       <div className="celebrate">
         <div className="msg">
           <div className="em">🎉</div>
-          <div style={{ fontWeight: 800, fontSize: 15 }}>퀘스트 완료!</div>
+          <div style={{ fontWeight: 800, fontSize: 15 }}>{label || '퀘스트 완료!'}</div>
           <div className="big">+{won(amount)}원!</div>
           <div style={{ color: 'var(--muted)', fontSize: 13 }}>보상이 지급됐어요</div>
         </div>

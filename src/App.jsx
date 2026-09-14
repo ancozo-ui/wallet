@@ -12,7 +12,7 @@ export default function App() {
   const [me, setMe] = useState(undefined)
   const [data, setData] = useState(null)
   const [online, setOnline] = useState(navigator.onLine)
-  const [cele, setCele] = useState(0)
+  const [cele, setCele] = useState(null)
   const [toastMsg, toast] = useToast()
 
   useEffect(() => {
@@ -61,7 +61,7 @@ export default function App() {
       toast('⚠️ ' + (e.message || '문제가 생겼어요'))
       return false
     }
-    if (celeAmt) setCele(celeAmt)
+    if (celeAmt) setCele({ amount: celeAmt })
     if (okMsg) toast(okMsg)
     try { await reload() } catch { /* 화면 갱신 실패는 작업 성공에 영향 없음 */ }
     return true
@@ -69,6 +69,9 @@ export default function App() {
 
   // 공유 태블릿 대비: 로그아웃하면 이 기기 구독을 먼저 끊는다.
   // 안 그러면 다음 사람이 이전 사용자의 알림을 받는다.
+  const celebrate = useCallback((amount, label) => setCele({ amount, label }), [])
+  const clearCele = useCallback(() => setCele(null), [])
+
   const signOut = async () => {
     await disablePush().catch(() => {})
     await supabase.auth.signOut()
@@ -82,7 +85,7 @@ export default function App() {
   } else if (!me) {
     screen = <CreateFamilyGate toast={toast} onDone={() => getMyMember().then((m) => setMe(m || null))} />
   } else {
-    const ctx = { me, data, reload, online, run, toast, celebrate: setCele, signOut }
+    const ctx = { me, data, reload, online, run, toast, celebrate, signOut }
     screen = me.role === 'parent' ? <Parent ctx={ctx} /> : <Child ctx={ctx} />
   }
 
@@ -90,7 +93,7 @@ export default function App() {
     <div className="wrap">
       <div className="phone"><div className={'screen' + (!online ? ' offline' : '')}>{screen}</div></div>
       <Toast msg={toastMsg} />
-      {cele > 0 && <Celebrate amount={cele} onDone={() => setCele(0)} />}
+      {cele && <Celebrate amount={cele.amount} label={cele.label} onDone={clearCele} />}
     </div>
   )
 }
