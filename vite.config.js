@@ -6,11 +6,14 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
+      // 푸시 핸들러를 넣으려면 직접 작성한 SW(src/sw.js)가 필요하다.
+      // generateSW + workbox.importScripts 조합은 플러그인이 무시해서 동작하지 않는다.
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.js',
       registerType: 'autoUpdate',
-      workbox: {
-        clientsClaim: true,
-        skipWaiting: true,
-        cleanupOutdatedCaches: true,
+      injectManifest: {
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,webmanifest}'],
       },
       manifest: {
         id: '/',

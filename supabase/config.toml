@@ -1,0 +1,6 @@
+project_id = "vukusjpopqhvvbepbsqt"
+
+# notify 는 브라우저가 아니라 Postgres 트리거(pg_net)가 호출한다.
+# JWT 대신 x-push-secret 헤더로 인증하므로 JWT 검증을 끈다.
+[functions.notify]
+verify_jwt = false

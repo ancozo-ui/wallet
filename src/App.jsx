@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { supabase } from './supabase'
 import { getMyMember, createFamily, loadParent, loadChild, subscribeFamily } from './api'
 import { Toast, Celebrate, useToast } from './ui'
+import { syncPush, disablePush } from './push'
 import Parent from './Parent'
 import Child from './Child'
 import Login from './Login'
@@ -44,6 +45,7 @@ export default function App() {
   useEffect(() => {
     if (!me) return
     reload()
+    syncPush().catch(() => {})   // 이미 허용된 기기면 구독 주인을 현재 계정으로 맞춘다
     const unsub = subscribeFamily(() => reload())
     return unsub
   }, [me, reload])
@@ -65,7 +67,12 @@ export default function App() {
     return true
   }, [online, reload]) // eslint-disable-line
 
-  const signOut = () => supabase.auth.signOut()
+  // 공유 태블릿 대비: 로그아웃하면 이 기기 구독을 먼저 끊는다.
+  // 안 그러면 다음 사람이 이전 사용자의 알림을 받는다.
+  const signOut = async () => {
+    await disablePush().catch(() => {})
+    await supabase.auth.signOut()
+  }
 
   let screen
   if (session === undefined || (session && me === undefined)) {
