@@ -593,6 +593,7 @@ function SettingsSheet({ family, A, onClose }) {
         </div>
       </div>
       <ActionButton className="btn pri" onClick={go}>저장하기</ActionButton>
+      <div className="msub" style={{ textAlign: 'center', marginTop: 10 }}>빌드 {__BUILD__}</div>
     </Sheet>
   )
 }
