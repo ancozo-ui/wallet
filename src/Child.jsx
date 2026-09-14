@@ -220,16 +220,49 @@ function Spend({ me, available, reserved, blocked, onGoQuests, onTime, onBuy }) 
 }
 
 function Quests({ quests, run, onSubmit, onCancel, onPropose }) {
-  const order = { prog: 0, open: 1, done_sub: 2, done: 3, expired: 4 }
-  const qs = [...quests].sort((a, b) => order[a.status] - order[b.status])
+  const [openCat, setOpenCat] = useState(null)
+  // 지금 하는 중인 건 항상 펼쳐 두고, 나머지는 카테고리로 접어 스크롤을 줄인다.
+  const active = quests.filter((q) => q.status === 'prog' || q.status === 'done_sub')
+  const rest = quests.filter((q) => q.status === 'open')
+  const byCat = {}
+  rest.forEach((q) => { (byCat[q.category] || (byCat[q.category] = [])).push(q) })
+  const cats = Object.keys(QCAT).filter((k) => byCat[k] && byCat[k].length)
+  const apply = (qq) => run(() => api.applyQuest(qq.id), '도전 시작! 오늘 밤 12시까지 ⏰')
+
   return (
     <>
       <div style={{ display: 'flex', gap: 8, alignItems: 'center', margin: '6px 0 12px' }}>
         <div style={{ fontFamily: 'var(--disp)', fontSize: 17, flex: 1 }}>도전할 퀘스트</div>
         <button className="btn coin sm" onClick={onPropose}>✋ 제안하기</button>
       </div>
-      {qs.length === 0 && <div className="empty"><span className="e">🗺️</span>아직 퀘스트가 없어요<br />하고 싶은 일을 제안해 보세요!</div>}
-      {qs.map((q) => <QuestCard key={q.id} q={q} child onApply={(qq) => run(() => api.applyQuest(qq.id), '도전 시작! 오늘 밤 12시까지 ⏰')} onSubmit={onSubmit} onCancel={onCancel} />)}
+
+      {active.length > 0 && <div className="sec-t">🔥 지금 하는 중 <span className="cnt">{active.length}</span></div>}
+      {active.map((q) => (
+        <QuestCard key={q.id} q={q} child onApply={apply} onSubmit={onSubmit} onCancel={onCancel} />
+      ))}
+
+      {active.length === 0 && cats.length === 0 && (
+        <div className="empty"><span className="e">🗺️</span>아직 퀘스트가 없어요<br />하고 싶은 일을 제안해 보세요!</div>
+      )}
+
+      {cats.length > 0 && <div className="sec-t">도전할 수 있어요 <span className="cnt">{rest.length}</span></div>}
+      {cats.map((k) => {
+        const c = QCAT[k]
+        const list = byCat[k]
+        const isOpen = openCat === k
+        return (
+          <div key={k}>
+            <button className="sblock" onClick={() => setOpenCat(isOpen ? null : k)}>
+              <span className="em">{c.e}</span>
+              <div><div className="t">{c.n}</div><div className="d">{list.length}개</div></div>
+              <span className="rt" style={{ color: 'var(--faint)' }}>{isOpen ? '▾' : '▸'}</span>
+            </button>
+            {isOpen && list.map((q) => (
+              <QuestCard key={q.id} q={q} child onApply={apply} onSubmit={onSubmit} onCancel={onCancel} />
+            ))}
+          </div>
+        )
+      })}
     </>
   )
 }
