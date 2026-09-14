@@ -57,7 +57,7 @@ export default function Child({ ctx }) {
       <div className="body">
         {tab === 'home' && <Home me={me} tx={data.tx} fines={fines} activeQuests={activeQuests}
           onAck={ackFineNow} onGoQuests={() => setTab('quests')}
-          toast={toast}
+          toast={toast} signOut={ctx.signOut}
           onSpend={() => setTab('spend')} onSend={() => (blocked ? guide() : setSheet({ t: 'send' }))} />}
         {tab === 'spend' && <Spend me={me} available={available} reserved={reserved} blocked={blocked}
           onGoQuests={() => setTab('quests')}
@@ -83,7 +83,7 @@ export default function Child({ ctx }) {
   )
 }
 
-function Home({ me, tx, fines, activeQuests, onAck, onGoQuests, onSpend, onSend, toast }) {
+function Home({ me, tx, fines, activeQuests, onAck, onGoQuests, onSpend, onSend, toast, signOut }) {
   const inc = tx.filter((t) => t.sign > 0).reduce((a, t) => a + t.amount, 0)
   const out = tx.filter((t) => t.sign < 0).reduce((a, t) => a + t.amount, 0)
   const owing = me.balance < 0
@@ -142,6 +142,8 @@ function Home({ me, tx, fines, activeQuests, onAck, onGoQuests, onSpend, onSend,
           )
         })}
       </div>
+      {/* 기기를 공유하니 아이도 로그아웃이 필요하다. 로그아웃하면 이 기기의 푸시 구독도 해제된다. */}
+      <button className="btn line" style={{ marginTop: 14, color: 'var(--muted)' }} onClick={signOut}>로그아웃</button>
     </>
   )
 }
