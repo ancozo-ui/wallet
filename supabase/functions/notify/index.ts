@@ -58,8 +58,11 @@ Deno.serve(async (req) => {
       const t = wanted.find((x) => x.memberId === s.member_id)!;
       const payload = JSON.stringify({ title: t.title, body: t.body, tag: t.tag, url: "/" });
       try {
+        // urgency=high 로 보내야 안드로이드 절전(Doze) 중에도 기기를 바로 깨운다.
+        // 기본값(normal)이면 잠든 기기에서 수 분~수십 분 지연될 수 있다.
+        // ttl 1일: 기기가 꺼져 있어도 그동안은 보관됐다가 전달된다.
         await server.subscribe({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } })
-          .pushTextMessage(payload, {});
+          .pushTextMessage(payload, { ttl: 86400, urgency: webpush.Urgency.High });
         sent++;
         await admin.from("push_subscriptions")
           .update({ last_ok_at: new Date().toISOString() }).eq("id", s.id);
