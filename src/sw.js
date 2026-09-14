@@ -25,7 +25,9 @@ self.addEventListener('push', (e) => {
   e.waitUntil(self.registration.showNotification(d.title || '용돈 나라', {
     body: d.body || '',
     icon: '/icon-192.png',
-    badge: '/icon-192.png',
+    // 배지는 안드로이드가 알파 모양만 따서 흰색으로 칠한다.
+    // 앱 아이콘(배경 꽉 찬 사각형)을 쓰면 흰 사각형이 되므로 실루엣만 따로 쓴다.
+    badge: '/badge-96.png',
     tag: d.tag || 'wallet',
     renotify: true,
     vibrate: [60, 40, 60],
