@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { won } from './const'
-import { pushPermission, enablePush, disablePush } from './push'
+import { pushPermission, enablePush, disablePush, isSubscribed } from './push'
 
 export function Sheet({ title, sub, children, onClose }) {
   return (
@@ -18,21 +18,27 @@ export function Sheet({ title, sub, children, onClose }) {
 // 권한 요청은 이 버튼의 탭(사용자 제스처) 안에서만 일어난다.
 export function PushToggle({ kid, toast }) {
   const [perm, setPerm] = useState(() => pushPermission())
+  const [subscribed, setSubscribed] = useState(false)
+
+  // 구독 존재 여부가 실제 on/off. 권한만으로는 판단할 수 없다(끈 뒤에도 granted 로 남음).
+  useEffect(() => { isSubscribed().then(setSubscribed).catch(() => setSubscribed(false)) }, [])
+
   if (perm === 'unsupported') return null
 
   const on = async () => {
     try {
       const r = await enablePush()
       setPerm(r === 'unsupported' ? 'unsupported' : pushPermission())
+      setSubscribed(r === 'granted')
       toast?.(r === 'granted' ? '🔔 알림을 켰어요!' : '알림이 꺼져 있어요. 휴대폰 설정에서 켜주세요')
     } catch (e) { toast?.('⚠️ ' + (e.message || '알림을 켜지 못했어요')) }
   }
   const off = async () => {
-    try { await disablePush(); setPerm(pushPermission()); toast?.('알림을 껐어요') }
+    try { await disablePush(); setSubscribed(false); toast?.('알림을 껐어요') }
     catch (e) { toast?.('⚠️ ' + (e.message || '')) }
   }
 
-  if (perm === 'granted') {
+  if (perm === 'granted' && subscribed) {
     return (
       <div className="sblock" style={{ cursor: 'default' }}>
         <span className="em">🔔</span>

@@ -37,6 +37,14 @@ export async function enablePush() {
   return 'granted'
 }
 
+// 켜짐/꺼짐의 실제 기준은 '구독이 있는가'다.
+// 구독을 해제해도 Notification.permission 은 granted 로 남으므로 권한만 봐선 알 수 없다.
+export async function isSubscribed() {
+  if (!pushSupported() || Notification.permission !== 'granted') return false
+  const reg = await navigator.serviceWorker.ready
+  return !!(await reg.pushManager.getSubscription())
+}
+
 export async function disablePush() {
   if (!pushSupported()) return
   const reg = await navigator.serviceWorker.ready
