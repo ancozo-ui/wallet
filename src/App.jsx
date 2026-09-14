@@ -29,14 +29,37 @@ export default function App() {
   useEffect(() => {
     history.pushState({ guard: 1 }, '')
     const onPop = () => {
-      if (exitingRef.current) return
+      if (exitingRef.current) return   // 종료 중이면 막지 않는다
       const scrim = document.querySelector('.scrim')
       if (scrim) scrim.click()
       else setAskExit(true)
       history.pushState({ guard: 1 }, '')
     }
+    // 종료를 눌렀는데 기기가 닫아주지 않았고 사용자가 앱을 계속 쓰면(화면을 만지면)
+    // 가드를 되살린다. 이게 없으면 그 뒤로 뒤로가기가 계속 그냥 통과해버린다.
+    const rearm = () => {
+      if (!exitingRef.current) return
+      exitingRef.current = false
+      history.pushState({ guard: 1 }, '')
+    }
     addEventListener('popstate', onPop)
-    return () => removeEventListener('popstate', onPop)
+    addEventListener('pointerdown', rearm)
+    return () => {
+      removeEventListener('popstate', onPop)
+      removeEventListener('pointerdown', rearm)
+    }
+  }, [])
+
+  // 웹앱은 스스로 앱을 닫을 수 없다. 안드로이드는 '돌아갈 기록이 없을 때 사용자가
+  // 누른 뒤로가기'에만 앱을 닫는다. 그래서 (1) 닫기를 시도해 보고 (2) 안 되면
+  // 기록을 비워, 다음 뒤로가기 한 번에 곧바로 닫히게 한다.
+  // 예전엔 history.go(-2) 를 썼는데 기록이 2개뿐이라 범위를 벗어나 무시됐고,
+  // 그 뒤 가드가 풀린 채로 남아 확인창이 안 뜨는 증상까지 생겼다.
+  const doExit = useCallback(() => {
+    exitingRef.current = true
+    setAskExit(false)
+    try { window.close() } catch { /* 대부분의 기기에서는 막혀 있다 */ }
+    history.back()
   }, [])
 
   useEffect(() => {
@@ -114,7 +137,7 @@ export default function App() {
         <Sheet title="앱을 닫을까요?" sub="실수로 뒤로가기를 누르셨을 수도 있어요." onClose={() => setAskExit(false)}>
           <button className="btn pri" onClick={() => setAskExit(false)}>계속 사용하기</button>
           <button className="btn line" style={{ marginTop: 8, color: 'var(--muted)' }}
-            onClick={() => { exitingRef.current = true; setAskExit(false); history.go(-2) }}>종료하기</button>
+            onClick={doExit}>종료하기</button>
         </Sheet>
       )}
       <Toast msg={toastMsg} />
