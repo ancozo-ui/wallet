@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { won } from './const'
+import { pushPermission, enablePush, disablePush } from './push'
 
 export function Sheet({ title, sub, children, onClose }) {
   return (
@@ -10,6 +11,54 @@ export function Sheet({ title, sub, children, onClose }) {
         {children}
       </div>
     </div>
+  )
+}
+
+// 알림 켜기/끄기 토글. 부모는 설정 시트, 자녀는 홈 블록으로 쓴다.
+// 권한 요청은 이 버튼의 탭(사용자 제스처) 안에서만 일어난다.
+export function PushToggle({ kid, toast }) {
+  const [perm, setPerm] = useState(() => pushPermission())
+  if (perm === 'unsupported') return null
+
+  const on = async () => {
+    try {
+      const r = await enablePush()
+      setPerm(r === 'unsupported' ? 'unsupported' : pushPermission())
+      toast?.(r === 'granted' ? '🔔 알림을 켰어요!' : '알림이 꺼져 있어요. 휴대폰 설정에서 켜주세요')
+    } catch (e) { toast?.('⚠️ ' + (e.message || '알림을 켜지 못했어요')) }
+  }
+  const off = async () => {
+    try { await disablePush(); setPerm(pushPermission()); toast?.('알림을 껐어요') }
+    catch (e) { toast?.('⚠️ ' + (e.message || '')) }
+  }
+
+  if (perm === 'granted') {
+    return (
+      <div className="sblock" style={{ cursor: 'default' }}>
+        <span className="em">🔔</span>
+        <div><div className="t">알림 켜짐</div>
+          <div className="d">{kid ? '이제 소식이 오면 알려줄게요 🎉' : '이 기기로 알림이 와요'}</div></div>
+        <button className="rt" style={{ color: 'var(--muted)', fontSize: 12 }} onClick={off}>끄기</button>
+      </div>
+    )
+  }
+  if (perm === 'denied') {
+    return (
+      <div className="sblock" style={{ cursor: 'default' }}>
+        <span className="em">🔕</span>
+        <div><div className="t">알림이 꺼져 있어요</div>
+          <div className="d">{kid ? '부모님께 알림을 켜달라고 부탁해요'
+            : '휴대폰 설정 → 앱 → 용돈나라 → 알림 에서 켜주세요'}</div></div>
+      </div>
+    )
+  }
+  return (
+    <button className="sblock" onClick={on}>
+      <span className="em">🔔</span>
+      <div><div className="t">알림 받기</div>
+        <div className="d">{kid ? '부모님이 허락하면 바로 알려줄게요!' : '아이가 요청을 보내면 바로 알려드려요'}</div></div>
+      <span className="rt" style={{ color: 'var(--mint-ink)', fontSize: 12 }}>켜기</span>
+    </button>
   )
 }
 

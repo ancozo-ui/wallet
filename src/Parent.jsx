@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { QCAT, PRESET_QUESTS, catInfo, won, stars, WEEKDAYS, allowanceWeekStart, txIcon } from './const'
-import { Sheet, Donut, Bars, ActionButton, useIdemToken } from './ui'
+import { Sheet, Donut, Bars, ActionButton, useIdemToken, PushToggle } from './ui'
 import * as api from './api'
 
 export default function Parent({ ctx }) {
@@ -584,7 +584,9 @@ function SettingsSheet({ family, A, onClose }) {
     if (ok) onClose()
   }
   return (
-    <Sheet title="⚙️ 용돈 설정" sub="주간 용돈 지급 요일이에요. 분석의 '이번 주'가 이 요일 기준으로 끊겨요." onClose={onClose}>
+    <Sheet title="⚙️ 설정" sub="알림과 주간 용돈 지급 요일을 정해요." onClose={onClose}>
+      <div className="field"><label>알림</label>
+        <PushToggle toast={A.toast} /></div>
       <div className="field"><label>용돈 지급 요일</label>
         <div className="chips">
           {WEEKDAYS.map((w, i) => <button key={i} className={day === i ? 'on' : ''} onClick={() => setDay(i)}>{w}</button>)}

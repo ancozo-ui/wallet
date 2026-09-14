@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { CATS, BUY_CATS, QCAT, txIcon, won } from './const'
-import { Sheet, Stepper, Stars, ActionButton, useIdemToken } from './ui'
+import { Sheet, Stepper, Stars, ActionButton, useIdemToken, PushToggle } from './ui'
 import { QuestCard, Stats } from './Parent'
 import * as api from './api'
 
@@ -57,6 +57,7 @@ export default function Child({ ctx }) {
       <div className="body">
         {tab === 'home' && <Home me={me} tx={data.tx} fines={fines} activeQuests={activeQuests}
           onAck={ackFineNow} onGoQuests={() => setTab('quests')}
+          toast={toast}
           onSpend={() => setTab('spend')} onSend={() => (blocked ? guide() : setSheet({ t: 'send' }))} />}
         {tab === 'spend' && <Spend me={me} available={available} reserved={reserved} blocked={blocked}
           onGoQuests={() => setTab('quests')}
@@ -82,13 +83,14 @@ export default function Child({ ctx }) {
   )
 }
 
-function Home({ me, tx, fines, activeQuests, onAck, onGoQuests, onSpend, onSend }) {
+function Home({ me, tx, fines, activeQuests, onAck, onGoQuests, onSpend, onSend, toast }) {
   const inc = tx.filter((t) => t.sign > 0).reduce((a, t) => a + t.amount, 0)
   const out = tx.filter((t) => t.sign < 0).reduce((a, t) => a + t.amount, 0)
   const owing = me.balance < 0
   const hasNews = fines.length > 0 || activeQuests.length > 0
   return (
     <>
+      <PushToggle kid toast={toast} />
       {hasNews && <div className="sec-t">📌 지금 상황</div>}
       {fines.map((f) => (
         <button className="sblock fine" key={f.id} onClick={() => onAck(f)}>
