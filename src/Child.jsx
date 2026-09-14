@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { CATS, BUY_CATS, QCAT, txIcon, won } from './const'
 import { Sheet, Stepper, Stars, ActionButton, useIdemToken, PushToggle } from './ui'
 import { QuestCard, Stats } from './Parent'
@@ -16,19 +16,53 @@ export default function Child({ ctx }) {
   const [sheet, setSheet] = useState(null)
 
   // 부모가 퀘스트 완료를 승인해 보상이 들어오면 아이 화면에서 축하한다.
-  // 첫 로드 때 이미 있던 내역은 기준선으로 잡아두고, 그 뒤에 새로 생긴 것만 축하.
-  const seenQuestTx = useRef(null)
+  //
+  // 이미 축하한 보상은 기기에 기록해 두고(localStorage), 아직 축하 안 한 것만
+  // 오래된 순서대로 '한 건씩' 보여준다. 그래서
+  //  - 같은 축하가 앱에 들어갈 때마다 다시 뜨지 않고
+  //  - 여러 건이 쌓여도 합산되지 않고 어떤 퀘스트였는지 각각 알 수 있으며
+  //  - 앱이 꺼져 있는 사이 받은 보상도 다음에 열 때 제대로 축하받는다.
+  const queueRef = useRef([])
+  const showingRef = useRef(false)
+
+  const pump = useCallback(() => {
+    if (showingRef.current) return
+    const next = queueRef.current.shift()
+    if (!next) return
+    showingRef.current = true
+    celebrate(next.amount, next.label)
+    // 축하 카드가 1.8초 뒤 사라지므로 조금 여유를 두고 다음 건을 띄운다.
+    setTimeout(() => { showingRef.current = false; pump() }, 2200)
+  }, [celebrate])
+
   useEffect(() => {
-    const rewards = (data?.tx || []).filter((t) => t.sign > 0 && t.category === 'quest')
-    if (seenQuestTx.current === null) {
-      seenQuestTx.current = new Set(rewards.map((t) => t.id))
+    const meNow = data?.me
+    if (!data?.tx || !meNow) return
+    const key = `celebrated:${meNow.id}`
+    const rewards = data.tx.filter((t) => t.sign > 0 && t.category === 'quest')
+
+    let raw
+    try { raw = localStorage.getItem(key) } catch { return }
+
+    // 이 기기에서 처음 여는 경우: 지난 내역을 몰아서 축하하지 않는다.
+    if (raw === null) {
+      try { localStorage.setItem(key, JSON.stringify(rewards.map((t) => t.id))) } catch { /* 저장 불가 */ }
       return
     }
-    const fresh = rewards.filter((t) => !seenQuestTx.current.has(t.id))
+
+    let seen
+    try { seen = new Set(JSON.parse(raw)) } catch { seen = new Set() }
+    const fresh = rewards
+      .filter((t) => !seen.has(t.id))
+      .sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
     if (!fresh.length) return
-    fresh.forEach((t) => seenQuestTx.current.add(t.id))
-    celebrate(fresh.reduce((a, t) => a + t.amount, 0))
-  }, [data?.tx, celebrate])
+
+    fresh.forEach((t) => seen.add(t.id))
+    try { localStorage.setItem(key, JSON.stringify([...seen].slice(-200))) } catch { /* 저장 불가 */ }
+
+    queueRef.current.push(...fresh.map((t) => ({ amount: t.amount, label: t.label })))
+    pump()
+  }, [data?.tx, data?.me, pump])
 
   if (!data) return <div className="body"><div className="empty"><span className="e">🐷</span>불러오는 중…</div></div>
 
