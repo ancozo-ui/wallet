@@ -52,7 +52,22 @@ export default function Parent({ ctx }) {
         {tab === 'queue' && <Queue completions={completions} reqs={reqs} kmap={kmap} A={A} />}
         {tab === 'quests' && <Quests kids={kids} quests={data.quests} onNew={() => setSheet({ t: 'quest' })}
           onEdit={(q) => setSheet({ t: 'questedit', quest: q })} onPreset={() => setSheet({ t: 'preset' })} />}
-        {tab === 'stats' && <Stats kid={kmap[focusKid]} tx={data.tx.filter((t) => t.member_id === focusKid)} allowanceDay={allowanceDay} onDelete={(t) => setSheet({ t: 'deltx', tx: t })} />}
+        {tab === 'stats' && (
+          <>
+            {/* 분석 탭으로 바로 들어오면 첫째만 보여서, 여기서 아이를 바꿀 수 있게 한다. */}
+            {kids.length > 1 && (
+              <div className="seg" style={{ margin: '8px 0 2px' }}>
+                {kids.map((k) => (
+                  <button key={k.id} className={focusKid === k.id ? 'on p' : ''} onClick={() => setFocus(k.id)}>
+                    {k.emoji} {k.name}
+                  </button>
+                ))}
+              </div>
+            )}
+            <Stats kid={kmap[focusKid]} tx={data.tx.filter((t) => t.member_id === focusKid)}
+              allowanceDay={allowanceDay} onDelete={(t) => setSheet({ t: 'deltx', tx: t })} />
+          </>
+        )}
       </div>
 
       <div className="nav">
