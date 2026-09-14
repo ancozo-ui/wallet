@@ -148,7 +148,12 @@ function Queue({ completions, reqs, kmap, A }) {
             <div className="rt">{nm(q.member_id)} · {q.title}</div>
             <div className="rd">{q.reward_type === 'unit' ? `${q.submission?.qty}${q.unit || ''} 완료` : '완료'} · 체감 난이도 <span style={{ color: 'var(--coin)' }}>{stars(q.submission?.diff || 0)}</span></div>
             <div className="calc" style={{ marginBottom: 10 }}>기본 보상 {won(base)}원</div>
-            <button className="btn coin" onClick={() => setConfirmQ(q)}>✓ 확인하고 보상 주기</button>
+            <div className="btn-row">
+              <ActionButton className="btn line sm" style={{ flex: 1 }}
+                onClick={() => A.run(() => api.rejectQuest(q.id), '반려했어요 · 다시 하도록 되돌렸어요')}>반려</ActionButton>
+              <ActionButton className="btn coin sm" style={{ flex: 2 }}
+                onClick={() => setConfirmQ(q)}>✓ 확인하고 보상 주기</ActionButton>
+            </div>
           </div>
         )
       })}
@@ -211,7 +216,9 @@ function Queue({ completions, reqs, kmap, A }) {
 
 function ConfirmSheet({ q, A, onClose }) {
   const base = q.reward_type === 'unit' ? q.reward * (q.submission?.qty || 1) : q.reward
-  const [bonus, setBonus] = useState(0)
+  const [bonusInput, setBonusInput] = useState('')
+  // 부모가 적은 금액 그대로 준다(단위 제한 없음).
+  const bonus = Math.max(0, Math.floor(+bonusInput || 0))
   const go = async () => {
     // 축하 연출은 아이 화면에서 뜬다(부모는 승인만).
     const ok = await A.run(() => api.confirmQuest(q.id, bonus, A.actor), `${won(base + bonus)}원 보상을 지급했어요`)
@@ -221,11 +228,8 @@ function ConfirmSheet({ q, A, onClose }) {
     <Sheet title={`${q.title} 확인 ✓`} sub="잘했으면 보너스를 더 줄 수 있어요" onClose={onClose}>
       <div className="calc">기본 보상 {won(base)}원 · 난이도 {stars(q.submission?.diff || 0)}</div>
       <div className="field" style={{ marginTop: 14 }}><label>보너스 (선택)</label>
-        <div className="chips">
-          {[0, 300, 500, 1000].map((b) => (
-            <button key={b} className={bonus === b ? 'on' : ''} onClick={() => setBonus(b)}>{b === 0 ? '없음' : '+' + b}</button>
-          ))}
-        </div>
+        <input type="number" inputMode="numeric" min="0" value={bonusInput}
+          onChange={(e) => setBonusInput(e.target.value)} placeholder="예: 700" />
       </div>
       <div className="calc" style={{ background: 'var(--coin-soft)', color: 'var(--coin-ink)' }}>총 {won(base + bonus)}원 지급</div>
       <ActionButton className="btn coin" style={{ marginTop: 14 }} onClick={go}>🎉 보상 지급하기</ActionButton>

@@ -101,6 +101,10 @@ function buildTargets(p: any, parents: string[], nameOf: (id: string) => string)
       return toParents("⏳ 완료 확인 기다려요",
         `${kid}이(가) "${p.title}"을(를) 끝냈대요${p.qty ? ` (${p.qty}${p.unit ?? ""})` : ""}`);
 
+    case "quest_returned":
+      return [{ memberId: p.member_id, title: "🔁 다시 해볼까요?",
+        body: `"${p.title}" 아직 완료가 안 됐대요. 마저 하고 다시 제출해요`, tag }];
+
     case "request_approved":
       if (p.kind === "transfer") {
         return [

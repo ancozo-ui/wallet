@@ -64,6 +64,7 @@ export const give = (member, amount, memo, actor, token) =>
   rpc('give_allowance', { p_member: member, p_amount: amount, p_memo: memo, p_actor: actor, p_token: token || tok() })
 export const confirmQuest = (q, bonus, actor) =>
   rpc('confirm_quest', { p_quest: q, p_bonus: bonus, p_actor: actor, p_token: tok() })
+export const rejectQuest = (q) => rpc('reject_quest', { p_quest: q })
 export const approveRequest = (id, actor) =>
   rpc('approve_request', { p_request: id, p_actor: actor, p_token: tok() })
 export const rejectRequest = (id) => rpc('reject_request', { p_request: id })
