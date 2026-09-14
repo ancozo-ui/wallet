@@ -121,6 +121,7 @@ export async function addChild({ name, emoji, rate, loginId, pin }) {
 // ---- 아이 행위 ----
 export const ackFine = (id) => rpc('acknowledge_fine', { p_request: id, p_token: tok() })
 export const applyQuest = (id) => rpc('apply_quest', { p_quest: id })
+export const cancelQuest = (id) => rpc('cancel_quest', { p_quest: id })
 export const submitQuest = (id, qty, diff) => rpc('submit_quest', { p_quest: id, p_qty: qty, p_diff: diff })
 
 export async function createRequest(familyId, memberId, payload) {

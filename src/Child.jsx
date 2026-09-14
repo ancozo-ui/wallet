@@ -98,7 +98,8 @@ export default function Child({ ctx }) {
           onTime={(k) => (blocked ? guide() : setSheet({ t: 'time', kind: k }))}
           onBuy={(c) => (blocked ? guide() : setSheet({ t: 'buy', cat: c }))} />}
         {tab === 'quests' && <Quests quests={data.quests} run={run}
-          onSubmit={(q) => setSheet({ t: 'submit', q })} onPropose={() => setSheet({ t: 'propose' })} />}
+          onSubmit={(q) => setSheet({ t: 'submit', q })} onCancel={(q) => setSheet({ t: 'cancel', q })}
+          onPropose={() => setSheet({ t: 'propose' })} />}
         {tab === 'stats' && <Stats kid={me} tx={data.tx} allowanceDay={data.family?.allowance_day ?? 6} />}
       </div>
 
@@ -111,6 +112,7 @@ export default function Child({ ctx }) {
       {sheet?.t === 'send' && <SendSheet me={me} available={available} siblings={data.siblings} ctx={ctx} onClose={() => setSheet(null)} />}
       {sheet?.t === 'time' && <TimeSheet me={me} available={available} kind={sheet.kind} ctx={ctx} onClose={() => setSheet(null)} />}
       {sheet?.t === 'buy' && <BuySheet me={me} available={available} cat={sheet.cat} ctx={ctx} onClose={() => setSheet(null)} />}
+      {sheet?.t === 'cancel' && <CancelSheet q={sheet.q} ctx={ctx} onClose={() => setSheet(null)} />}
       {sheet?.t === 'submit' && <SubmitSheet q={sheet.q} ctx={ctx} onClose={() => setSheet(null)} />}
       {sheet?.t === 'propose' && <ProposeSheet me={me} ctx={ctx} onClose={() => setSheet(null)} />}
     </>
@@ -217,7 +219,7 @@ function Spend({ me, available, reserved, blocked, onGoQuests, onTime, onBuy }) 
   )
 }
 
-function Quests({ quests, run, onSubmit, onPropose }) {
+function Quests({ quests, run, onSubmit, onCancel, onPropose }) {
   const order = { prog: 0, open: 1, done_sub: 2, done: 3, expired: 4 }
   const qs = [...quests].sort((a, b) => order[a.status] - order[b.status])
   return (
@@ -227,7 +229,7 @@ function Quests({ quests, run, onSubmit, onPropose }) {
         <button className="btn coin sm" onClick={onPropose}>✋ 제안하기</button>
       </div>
       {qs.length === 0 && <div className="empty"><span className="e">🗺️</span>아직 퀘스트가 없어요<br />하고 싶은 일을 제안해 보세요!</div>}
-      {qs.map((q) => <QuestCard key={q.id} q={q} child onApply={(qq) => run(() => api.applyQuest(qq.id), '도전 시작! 오늘 밤 12시까지 ⏰')} onSubmit={onSubmit} />)}
+      {qs.map((q) => <QuestCard key={q.id} q={q} child onApply={(qq) => run(() => api.applyQuest(qq.id), '도전 시작! 오늘 밤 12시까지 ⏰')} onSubmit={onSubmit} onCancel={onCancel} />)}
     </>
   )
 }
@@ -295,6 +297,28 @@ function BuySheet({ me, available, cat, ctx, onClose }) {
       <div className="field"><label>필요한 금액 (원)</label><input type="number" inputMode="numeric" value={amt} onChange={(e) => setAmt(e.target.value)} placeholder="예: 2000" /></div>
       <div className="field"><label>무엇을 살 거예요?</label><input value={memo} onChange={(e) => setMemo(e.target.value)} placeholder="예: 친구 생일 선물" /></div>
       <ActionButton className="btn pri" onClick={go}>부모님께 요청 💌</ActionButton>
+    </Sheet>
+  )
+}
+
+function CancelSheet({ q, ctx, onClose }) {
+  const unit = q.reward_type === 'unit' ? `${q.unit || '개'}당 ` : ''
+  const go = async () => {
+    const ok = await ctx.run(() => api.cancelQuest(q.id), '도전을 취소했어요')
+    if (ok) onClose()
+  }
+  return (
+    <Sheet title="정말 취소할까요?" onClose={onClose}>
+      <div style={{ textAlign: 'center', fontSize: 42, marginTop: 4 }}>😢</div>
+      <div style={{ textAlign: 'center', fontSize: 14, lineHeight: 1.7, margin: '8px 4px 4px' }}>
+        지금 취소하면 <b>"{q.title}"</b> 으로 받을 수 있던<br />
+        <b style={{ color: 'var(--coin-ink)', fontSize: 17 }}>{unit}{won(q.reward)}원</b> 을 못 모아요.
+      </div>
+      <div className="insight" style={{ marginTop: 12 }}><span className="q">⏰</span>
+        <span>오늘 밤 12시까지 아직 시간이 있어요. 조금만 더 해볼까요?</span></div>
+      <button className="btn pri" style={{ marginTop: 14 }} onClick={onClose}>계속 도전할래요! 💪</button>
+      <ActionButton className="btn line" style={{ marginTop: 8, color: 'var(--muted)' }} onClick={go}>
+        그래도 취소할래요</ActionButton>
     </Sheet>
   )
 }

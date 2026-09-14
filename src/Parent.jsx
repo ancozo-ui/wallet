@@ -260,7 +260,7 @@ function Quests({ kids, quests, onNew, onEdit, onPreset }) {
   )
 }
 
-export function QuestCard({ q, child, onApply, onSubmit, onEdit }) {
+export function QuestCard({ q, child, onApply, onSubmit, onCancel, onEdit }) {
   const qc = QCAT[q.category] || QCAT.help
   const rw = q.reward_type === 'unit' ? `${q.unit || '개'}당 ${won(q.reward)}원` : `${won(q.reward)}원`
   const badge = { open: ['b-open', '🟢 모집중'], prog: ['b-prog', '🔵 진행중'], done_sub: ['b-wait', '⏳ 확인 대기중'], done: ['b-done', '✅ 완료'], expired: ['b-done', '⌛ 만료'] }[q.status]
@@ -276,7 +276,11 @@ export function QuestCard({ q, child, onApply, onSubmit, onEdit }) {
         {child && q.status === 'open' && <button className="btn pri sm" style={{ width: '100%', marginTop: 8 }} onClick={() => onApply(q)}>할래요!</button>}
         {child && q.status === 'prog' && <>
           <div className="countdown">⏰ 오늘 밤 12시까지 끝내기!</div>
-          <button className="btn coin sm" style={{ width: '100%', marginTop: 8 }} onClick={() => onSubmit(q)}>다 했어요 ✓</button>
+          <div className="btn-row" style={{ marginTop: 8 }}>
+            <button className="btn coin sm" style={{ flex: 1 }} onClick={() => onSubmit(q)}>다 했어요 ✓</button>
+            <button className="btn line sm" style={{ flex: '0 0 auto', color: 'var(--muted)' }}
+              onClick={() => onCancel(q)}>취소</button>
+          </div>
         </>}
       </div>
       {onEdit && <button className="delbtn" style={{ marginLeft: 0 }} onClick={() => onEdit(q)} title="보상 수정·삭제">✏️</button>}
