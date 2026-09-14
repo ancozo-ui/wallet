@@ -107,7 +107,7 @@ function Home({ kids, allowanceDay, onGive, onFine, onAdd, onEdit, onFocus, onSe
           <div style={{ marginLeft: 'auto', fontSize: 20, color: 'var(--faint)' }}>›</div>
         </div>
       )}
-      <button className="btn line" style={{ marginTop: 14 }} onClick={onSettings}>⚙️ 용돈 지급일 · 매주 {WEEKDAYS[allowanceDay]}요일</button>
+      <button className="btn line" style={{ marginTop: 14 }} onClick={onSettings}>🔔 알림 · ⚙️ 용돈 지급일(매주 {WEEKDAYS[allowanceDay]})</button>
       <button className="btn line" style={{ marginTop: 8, color: 'var(--muted)' }} onClick={signOut}>로그아웃</button>
     </>
   )
