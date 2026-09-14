@@ -22,7 +22,7 @@ export async function loadParent() {
   await expireQuests()
   const [family, kids, tx, quests, requests] = await Promise.all([
     supabase.from('families').select('*').limit(1).maybeSingle(),
-    supabase.from('members').select('*').eq('role', 'child').order('sort'),
+    supabase.from('members').select('*').eq('role', 'child').order('sort').order('created_at'),
     supabase.from('transactions').select('*').order('created_at', { ascending: false }),
     supabase.from('quests').select('*').order('created_at', { ascending: false }),
     supabase.from('requests').select('*').eq('status', 'pending').order('created_at'),
