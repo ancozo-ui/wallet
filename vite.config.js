@@ -3,6 +3,9 @@ import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
+  // 기기가 어느 빌드를 보고 있는지 화면에서 확인하기 위한 표식.
+  // 옛 배포 URL 에 설치된 앱과 최신 운영 앱을 구분하지 못해 헤맨 적이 있다.
+  define: { __BUILD__: JSON.stringify(new Date().toISOString().slice(5, 16).replace('T', ' ')) },
   plugins: [
     react(),
     VitePWA({
