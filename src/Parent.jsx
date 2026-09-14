@@ -217,8 +217,8 @@ function Queue({ completions, reqs, kmap, A }) {
 function ConfirmSheet({ q, A, onClose }) {
   const base = q.reward_type === 'unit' ? q.reward * (q.submission?.qty || 1) : q.reward
   const [bonusInput, setBonusInput] = useState('')
-  // 500원 단위로 맞춘다(칭찬 코인 1개 = 500원).
-  const bonus = Math.max(0, Math.round((+bonusInput || 0) / 500) * 500)
+  // 부모가 적은 금액 그대로 준다(단위 제한 없음).
+  const bonus = Math.max(0, Math.floor(+bonusInput || 0))
   const go = async () => {
     // 축하 연출은 아이 화면에서 뜬다(부모는 승인만).
     const ok = await A.run(() => api.confirmQuest(q.id, bonus, A.actor), `${won(base + bonus)}원 보상을 지급했어요`)
@@ -227,12 +227,9 @@ function ConfirmSheet({ q, A, onClose }) {
   return (
     <Sheet title={`${q.title} 확인 ✓`} sub="잘했으면 보너스를 더 줄 수 있어요" onClose={onClose}>
       <div className="calc">기본 보상 {won(base)}원 · 난이도 {stars(q.submission?.diff || 0)}</div>
-      <div className="field" style={{ marginTop: 14 }}><label>보너스 (선택 · 500원 단위)</label>
-        <input type="number" inputMode="numeric" step="500" min="0" value={bonusInput}
-          onChange={(e) => setBonusInput(e.target.value)} placeholder="예: 500" />
-        {bonusInput !== '' && bonus !== +bonusInput && (
-          <div className="msub" style={{ marginTop: 6 }}>500원 단위로 맞춰 {won(bonus)}원으로 계산돼요</div>
-        )}
+      <div className="field" style={{ marginTop: 14 }}><label>보너스 (선택)</label>
+        <input type="number" inputMode="numeric" min="0" value={bonusInput}
+          onChange={(e) => setBonusInput(e.target.value)} placeholder="예: 700" />
       </div>
       <div className="calc" style={{ background: 'var(--coin-soft)', color: 'var(--coin-ink)' }}>총 {won(base + bonus)}원 지급</div>
       <ActionButton className="btn coin" style={{ marginTop: 14 }} onClick={go}>🎉 보상 지급하기</ActionButton>
