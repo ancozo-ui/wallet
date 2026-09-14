@@ -15,6 +15,8 @@ export default defineConfig({
       srcDir: 'src',
       filename: 'sw.js',
       registerType: 'autoUpdate',
+      // 등록은 main.jsx 에서 직접 한다(갱신 확인·새로고침 로직을 붙이기 위해).
+      injectRegister: null,
       injectManifest: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,webmanifest}'],
       },
