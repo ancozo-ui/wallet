@@ -238,6 +238,8 @@ function ConfirmSheet({ q, A, onClose }) {
 }
 
 function Quests({ kids, quests, onNew, onEdit, onPreset }) {
+  // 아이마다 퀘스트가 십여 개라 전부 나열하면 스크롤이 길어진다. 카테고리로 접는다.
+  const [openKey, setOpenKey] = useState(null)
   return (
     <>
       <div className="btn-row" style={{ margin: '6px 0 10px' }}>
@@ -248,11 +250,28 @@ function Quests({ kids, quests, onNew, onEdit, onPreset }) {
         목록의 퀘스트는 계속 남아 반복 도전할 수 있어요 · ✏️ 로 보상 수정·삭제</div>
       {kids.map((k) => {
         const qs = quests.filter((q) => q.member_id === k.id)
+        const byCat = {}
+        qs.forEach((q) => { (byCat[q.category] || (byCat[q.category] = [])).push(q) })
+        const cats = Object.keys(QCAT).filter((c) => byCat[c] && byCat[c].length)
         return (
           <div key={k.id}>
             <div className="sec-t">{k.emoji} {k.name} <span className="cnt">{qs.length}</span></div>
             {qs.length === 0 && <div className="empty" style={{ padding: 18 }}>아직 퀘스트가 없어요</div>}
-            {qs.map((q) => <QuestCard key={q.id} q={q} onEdit={onEdit} />)}
+            {cats.map((c) => {
+              const key = k.id + ':' + c
+              const isOpen = openKey === key
+              const list = byCat[c]
+              return (
+                <div key={key}>
+                  <button className="sblock" onClick={() => setOpenKey(isOpen ? null : key)}>
+                    <span className="em">{QCAT[c].e}</span>
+                    <div><div className="t">{QCAT[c].n}</div><div className="d">{list.length}개</div></div>
+                    <span className="rt" style={{ color: 'var(--faint)' }}>{isOpen ? '▾' : '▸'}</span>
+                  </button>
+                  {isOpen && list.map((q) => <QuestCard key={q.id} q={q} onEdit={onEdit} />)}
+                </div>
+              )
+            })}
           </div>
         )
       })}

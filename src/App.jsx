@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase } from './supabase'
 import { getMyMember, createFamily, loadParent, loadChild, subscribeFamily } from './api'
-import { Toast, Celebrate, useToast } from './ui'
+import { Sheet, Toast, Celebrate, useToast } from './ui'
 import { syncPush, disablePush } from './push'
 import Parent from './Parent'
 import Child from './Child'
@@ -13,12 +13,30 @@ export default function App() {
   const [data, setData] = useState(null)
   const [online, setOnline] = useState(navigator.onLine)
   const [cele, setCele] = useState(null)
+  const [askExit, setAskExit] = useState(false)
+  const exitingRef = useRef(false)
   const [toastMsg, toast] = useToast()
 
   useEffect(() => {
     const on = () => setOnline(true), off = () => setOnline(false)
     addEventListener('online', on); addEventListener('offline', off)
     return () => { removeEventListener('online', on); removeEventListener('offline', off) }
+  }, [])
+
+  // 안드로이드에서 뒤로가기 한 번에 앱이 꺼지는 걸 막는다.
+  // 히스토리에 가드 항목을 하나 넣어두고, 뒤로가기가 그걸 소비하면 다시 넣는다.
+  // 열린 시트가 있으면 종료를 묻기 전에 그 시트부터 닫는다(안드로이드다운 동작).
+  useEffect(() => {
+    history.pushState({ guard: 1 }, '')
+    const onPop = () => {
+      if (exitingRef.current) return
+      const scrim = document.querySelector('.scrim')
+      if (scrim) scrim.click()
+      else setAskExit(true)
+      history.pushState({ guard: 1 }, '')
+    }
+    addEventListener('popstate', onPop)
+    return () => removeEventListener('popstate', onPop)
   }, [])
 
   useEffect(() => {
@@ -92,6 +110,13 @@ export default function App() {
   return (
     <div className="wrap">
       <div className="phone"><div className={'screen' + (!online ? ' offline' : '')}>{screen}</div></div>
+      {askExit && (
+        <Sheet title="앱을 닫을까요?" sub="실수로 뒤로가기를 누르셨을 수도 있어요." onClose={() => setAskExit(false)}>
+          <button className="btn pri" onClick={() => setAskExit(false)}>계속 사용하기</button>
+          <button className="btn line" style={{ marginTop: 8, color: 'var(--muted)' }}
+            onClick={() => { exitingRef.current = true; setAskExit(false); history.go(-2) }}>종료하기</button>
+        </Sheet>
+      )}
       <Toast msg={toastMsg} />
       {cele && <Celebrate amount={cele.amount} label={cele.label} onDone={clearCele} />}
     </div>
