@@ -12,9 +12,10 @@ const CAT: Record<string, string> = {
   gift: "선물", donate: "기부", game: "게임", tv: "TV",
 };
 
-// src/const.js 의 INVEST_BAND 와 짝을 맞춘 문구. 숫자보다 먼저 말로 설명해준다.
+// src/const.js 의 investBand 와 짝을 맞춘 문구. 숫자보다 먼저 말로 설명해준다.
+// 기준은 invest_config 기본값(0.15~0.5%)에 맞춘 것 — 그 설정을 바꾸면 이 경계도 같이 조정해야 한다.
 const investBand = (rate: number) =>
-  rate >= 5 ? "세계 경제가 좋았어요 📈" : rate <= 1.5 ? "세계 경제가 주춤했어요 📉" : "세계 경제가 보통이었어요 📊";
+  rate >= 0.4 ? "세계 경제가 좋았어요 📈" : rate <= 0.2 ? "세계 경제가 주춤했어요 📉" : "세계 경제가 보통이었어요 📊";
 
 type Member = { id: string; role: string; name: string };
 type Target = { memberId: string; title: string; body: string; tag: string };
