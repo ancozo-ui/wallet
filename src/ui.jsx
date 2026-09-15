@@ -188,6 +188,42 @@ export function InvestVine({ tx, onTapTick }) {
   )
 }
 
+// 선 그래프는 아이 눈높이엔 밋밋하다 — 대신 투자 총액에 따라 자라는 나무로 보여준다.
+// 정확한 수치보다 "커지고 있다"는 느낌이 먼저 와닿게. 부모는 InvestVine(정밀 그래프)을 본다.
+const TREE_STAGES = [
+  { max: 5000, e: '🌱', label: '씨앗' },
+  { max: 30000, e: '🌿', label: '새싹' },
+  { max: 100000, e: '🪴', label: '어린 나무' },
+  { max: 300000, e: '🌳', label: '나무' },
+  { max: Infinity, e: '🌲', label: '큰 나무' },
+]
+function treeStage(total) {
+  return TREE_STAGES.find((s) => total < s.max) || TREE_STAGES[TREE_STAGES.length - 1]
+}
+
+export function InvestTree({ total, tx, onTapTick }) {
+  const sorted = [...tx].sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+  if (!sorted.length) {
+    return <div className="empty" style={{ padding: 26 }}>아직 투자를 시작하지 않았어요<br />🌱 투자하기로 첫 씨앗을 심어보세요</div>
+  }
+  const stage = treeStage(total)
+  const recent = sorted.slice(-12) // 너무 많으면 어지러우니 최근 것만
+  return (
+    <div className="tree-plot">
+      <div className="tree-main">{stage.e}</div>
+      <div className="tree-label">{stage.label} · {won(total)}원</div>
+      <div className="tree-scatter">
+        {recent.map((t, i) => (
+          <span key={t.id} className={'tseed' + (t.kind === 'interest' ? ' tick' : '')} style={{ '--i': i }}
+            onClick={() => t.kind === 'interest' && onTapTick?.(t)}>
+            {t.kind === 'interest' ? '🍃' : t.kind === 'withdraw' ? '🍂' : '🌱'}
+          </span>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export function Toast({ msg }) {
   if (!msg) return null
   return <div className="toast">{msg}</div>

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { QCAT, PRESET_QUESTS, catInfo, won, stars, WEEKDAYS, allowanceWeekStart, txIcon, investBand } from './const'
-import { Sheet, Donut, Bars, InvestVine, ActionButton, useIdemToken, PushToggle } from './ui'
+import { Sheet, Donut, Bars, InvestVine, InvestTree, ActionButton, useIdemToken, PushToggle } from './ui'
 import * as api from './api'
 
 export default function Parent({ ctx }) {
@@ -64,7 +64,8 @@ export default function Parent({ ctx }) {
               </div>
             )}
             <Invest kid={kmap[focusKid]} tx={(data.investTx || []).filter((t) => t.member_id === focusKid)}
-              ticks={data.investTicks || []} readOnly />
+              ticks={data.investTicks || []} generalTx={data.tx.filter((t) => t.member_id === focusKid)}
+              onDelete={(t) => setSheet({ t: 'deltx', tx: t })} readOnly />
           </>
         )}
         {tab === 'stats' && (
@@ -355,9 +356,18 @@ export function Stats({ kid, tx, investTx = [], allowanceDay = 6, onDelete }) {
     : '최근 4주'
   const spent = ftx.filter((t) => t.sign < 0).reduce((a, t) => a + t.amount, 0)
   const earned = ftx.filter((t) => t.sign > 0).reduce((a, t) => a + t.amount, 0)
-  const investEarned = investTx
-    .filter((t) => t.kind === 'interest' && new Date(t.created_at).getTime() >= from)
-    .reduce((a, t) => a + t.amount, 0)
+
+  // 투자는 용돈과 금액 단위가 다르다(목돈 vs 용돈) — 같은 그래프에 섞으면
+  // 비율이 깨지므로, 용돈 도넛/막대와는 완전히 분리된 자기들끼리의 그래프로 보여준다.
+  const investPeriod = investTx.filter((t) => new Date(t.created_at).getTime() >= from)
+  const investEarned = investPeriod.filter((t) => t.kind === 'interest').reduce((a, t) => a + t.amount, 0)
+  const investDeposited = investPeriod.filter((t) => t.kind === 'deposit').reduce((a, t) => a + t.amount, 0)
+  const investWithdrawn = investPeriod.filter((t) => t.kind === 'withdraw').reduce((a, t) => a + t.amount, 0)
+  const investData = [
+    { label: '넣은 돈', emoji: '🌱', color: 'var(--mint)', value: investDeposited },
+    { label: '뺀 돈', emoji: '💵', color: 'var(--spend)', value: investWithdrawn },
+    { label: '이자로 번 돈', emoji: '📈', color: 'var(--coin)', value: investEarned },
+  ].filter((d) => d.value > 0)
 
   const incomeCats = { weekly: ['주간 용돈', 'var(--mint)'], quest: ['퀘스트', 'var(--coin)'], transfer: ['받은 돈', 'var(--spend)'], manual: ['직접 받음', 'var(--mint-ink)'] }
   const inc = {}
@@ -391,13 +401,6 @@ export function Stats({ kid, tx, investTx = [], allowanceDay = 6, onDelete }) {
         <div style={{ flex: 1 }}><div className="rt" style={{ fontSize: 11.5, color: 'var(--muted)' }}>쓴 돈</div>
           <div style={{ fontFamily: 'var(--disp)', fontSize: 20, color: 'var(--danger)' }}>-{won(spent)}</div></div>
       </div>
-      {investEarned > 0 && (
-        <div className="card" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 13 }}>
-          <div style={{ fontSize: 22 }}>📈</div>
-          <div><div className="rt" style={{ fontSize: 11.5, color: 'var(--muted)' }}>투자로 번 돈</div>
-            <div style={{ fontFamily: 'var(--disp)', fontSize: 18, color: 'var(--mint-ink)' }}>+{won(investEarned)}원</div></div>
-        </div>
-      )}
       {!inWin && <div className="empty" style={{ padding: 24 }}>이 기간엔 내역이 없어요<br />{period === 'week' ? '"최근 4주"로 넓혀 보세요' : ''}</div>}
       <div className="sec-t">{kid.emoji} {kid.name} · 💰 어디서 들어왔나</div>
       <div className="card">{incData.length ? <Donut data={incData} /> : <div className="empty" style={{ padding: 10 }}>아직 수입이 없어요</div>}</div>
@@ -412,6 +415,11 @@ export function Stats({ kid, tx, investTx = [], allowanceDay = 6, onDelete }) {
             <span className="vv">{won(d.total)}원</span></div>
         }) : <div className="empty" style={{ padding: 10 }}>아직 퀘스트로 번 돈이 없어요</div>}
       </div>
+
+      {/* 투자는 용돈 금액과 단위가 달라 그래프를 따로 둔다 — 관리·삭제는 "🌱 투자" 탭에서 한다. */}
+      <div className="sec-t">🌱 투자 활동 <span className="cnt">용돈과 별도</span></div>
+      {investData.length ? <div className="card"><Bars data={investData} /></div>
+        : <div className="empty" style={{ padding: 20 }}>이 기간엔 투자 활동이 없어요</div>}
 
       {onDelete && (
         <>
@@ -439,7 +447,7 @@ export function Stats({ kid, tx, investTx = [], allowanceDay = 6, onDelete }) {
 }
 
 // 투자 지갑 화면. 부모(읽기 전용)·아이(입금/인출 버튼) 양쪽에서 같은 모양으로 쓴다.
-export function Invest({ kid, tx, ticks, onDeposit, onWithdraw, readOnly }) {
+export function Invest({ kid, tx, ticks, generalTx = [], onDeposit, onWithdraw, onDelete, readOnly }) {
   const [openTick, setOpenTick] = useState(null)
   if (!kid) return <div className="empty">아이를 선택하세요</div>
   const total = (kid.invest_principal || 0) + (kid.invest_pending || 0)
@@ -455,7 +463,10 @@ export function Invest({ kid, tx, ticks, onDeposit, onWithdraw, readOnly }) {
         )}
       </div>
       <div className="card">
-        <InvestVine tx={tx} onTapTick={setOpenTick} />
+        {/* 아이는 자라는 나무로(직관적), 부모는 정밀한 그래프로(정확한 수치) */}
+        {readOnly
+          ? <InvestVine tx={tx} onTapTick={setOpenTick} />
+          : <InvestTree total={total} tx={tx} onTapTick={setOpenTick} />}
       </div>
       {!readOnly && (
         <div className="btn-row">
@@ -463,12 +474,14 @@ export function Invest({ kid, tx, ticks, onDeposit, onWithdraw, readOnly }) {
           <button className="btn line" onClick={onWithdraw}>💵 인출하기</button>
         </div>
       )}
-      <div className="sec-t">투자 내역</div>
+      <div className="sec-t">투자 내역{onDelete ? <span className="cnt">삭제 가능</span> : null}</div>
       <div className="card" style={{ padding: '5px 13px' }}>
         {sorted.length === 0 && <div className="empty" style={{ padding: 18 }}>아직 투자 내역이 없어요</div>}
         {sorted.map((t) => {
           const em = t.kind === 'interest' ? '📈' : t.kind === 'deposit' ? '🌱' : '💵'
           const title = t.kind === 'interest' ? '이자가 붙었어요' : t.kind === 'deposit' ? '투자하기' : `인출 · ${t.memo || ''}`
+          // 삭제는 investTx 가 아니라 그와 연결된 transactions 행을 지워야 한다(delete_transaction 이 그걸 봄).
+          const linked = onDelete && t.kind !== 'interest' ? generalTx.find((g) => g.invest_tx_id === t.id) : null
           return (
             <div className="tx" key={t.id} onClick={() => t.kind === 'interest' && setOpenTick(t)}
               style={t.kind === 'interest' ? { cursor: 'pointer' } : null}>
@@ -476,6 +489,7 @@ export function Invest({ kid, tx, ticks, onDeposit, onWithdraw, readOnly }) {
               <div><div className="tl">{title}</div>
                 <div className="td">{new Date(t.created_at).toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric' })}</div></div>
               <div className={'tv ' + (t.sign > 0 ? 'plus' : 'minus')} style={{ marginLeft: 'auto' }}>{t.sign > 0 ? '+' : '-'}{won(t.amount)}</div>
+              {linked && <button className="delbtn" onClick={(e) => { e.stopPropagation(); onDelete(linked) }} title="삭제">🗑</button>}
             </div>
           )
         })}
