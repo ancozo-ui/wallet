@@ -107,7 +107,7 @@ export default function Child({ ctx }) {
       </div>
 
       <div className="nav">
-        {[['home', '🏠', '홈'], ['spend', '💸', '지출'], ['invest', '🌱', '투자'], ['quests', '🏆', '퀘스트'], ['stats', '📊', '분석']].map(([id, ic, lb]) => (
+        {[['home', '🏠', '홈'], ['spend', '💸', '지출'], ['quests', '🏆', '퀘스트'], ['invest', '🌱', '투자'], ['stats', '📊', '분석']].map(([id, ic, lb]) => (
           <button key={id} className={tab === id ? 'on' : ''} onClick={() => setTab(id)}><span className="ic">{ic}</span>{lb}</button>
         ))}
       </div>

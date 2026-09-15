@@ -716,8 +716,12 @@ function QuestEditSheet({ q, A, onClose }) {
 function DeleteTxSheet({ tx, A, onClose }) {
   const [pw, setPw] = useState('')
   const [busy, setBusy] = useState(false)
-  const back = tx.sign > 0
-    ? `아이 잔액에서 ${won(tx.amount)}원이 다시 회수돼요`
+  // 투자와 연결된 내역(바로 투자로 준 용돈, 아이의 투자하기, 인출 승인)은
+  // 이 한 줄만으로 잔액 변화를 예측할 수 없다 — 투자 지갑도 함께 움직인다.
+  const investLinked = tx.grp === 'invest' || !!tx.related_id
+  const back = investLinked
+    ? '투자 지갑과 연결된 내역이에요 · 삭제하면 투자 지갑 금액도 함께 되돌아가요'
+    : tx.sign > 0 ? `아이 잔액에서 ${won(tx.amount)}원이 다시 회수돼요`
     : `아이 잔액에 ${won(tx.amount)}원이 돌아가요`
   const go = async () => {
     if (!pw) return
