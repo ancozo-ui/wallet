@@ -403,15 +403,17 @@ export function Stats({ kid, tx, investTx = [], allowanceDay = 6, onDelete }) {
       {investData.length ? <div className="card"><Bars data={investData} /></div>
         : <div className="empty" style={{ padding: 20 }}>이 기간엔 투자 활동이 없어요</div>}
 
-      <div className="card" style={{ display: 'flex', gap: 10, padding: 13 }}>
-        <div style={{ flex: 1 }}><div className="rt" style={{ fontSize: 11.5, color: 'var(--muted)' }}>모은 돈</div>
-          <div style={{ fontFamily: 'var(--disp)', fontSize: 20, color: 'var(--good)' }}>+{won(earned)}</div></div>
-        <div style={{ flex: 1 }}><div className="rt" style={{ fontSize: 11.5, color: 'var(--muted)' }}>쓴 돈</div>
-          <div style={{ fontFamily: 'var(--disp)', fontSize: 20, color: 'var(--danger)' }}>-{won(spent)}</div></div>
-      </div>
       {!inWin && <div className="empty" style={{ padding: 24 }}>이 기간엔 내역이 없어요<br />{period === 'week' ? '"최근 4주"로 넓혀 보세요' : ''}</div>}
       <div className="sec-t">{kid.emoji} {kid.name} · 💰 어디서 들어왔나</div>
-      <div className="card">{incData.length ? <Donut data={incData} /> : <div className="empty" style={{ padding: 10 }}>아직 수입이 없어요</div>}</div>
+      <div className="card">
+        <div style={{ display: 'flex', gap: 10, paddingBottom: 13, marginBottom: 13, borderBottom: '1px solid var(--line)' }}>
+          <div style={{ flex: 1 }}><div className="rt" style={{ fontSize: 11.5, color: 'var(--muted)' }}>모은 돈</div>
+            <div style={{ fontFamily: 'var(--disp)', fontSize: 20, color: 'var(--good)' }}>+{won(earned)}</div></div>
+          <div style={{ flex: 1 }}><div className="rt" style={{ fontSize: 11.5, color: 'var(--muted)' }}>쓴 돈</div>
+            <div style={{ fontFamily: 'var(--disp)', fontSize: 20, color: 'var(--danger)' }}>-{won(spent)}</div></div>
+        </div>
+        {incData.length ? <Donut data={incData} /> : <div className="empty" style={{ padding: 10 }}>아직 수입이 없어요</div>}
+      </div>
       <div className="sec-t">💸 돈이 어디로 나갔나</div>
       {spData.length ? <div className="card"><Bars data={spData} /></div> : <div className="empty" style={{ padding: 20 }}>아직 나간 돈이 없어요</div>}
       <div className="sec-t">🏆 퀘스트로 번 돈 · 힘든 정도</div>
