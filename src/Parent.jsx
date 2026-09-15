@@ -397,6 +397,12 @@ export function Stats({ kid, tx, investTx = [], allowanceDay = 6, onDelete }) {
         <button className={period === 'month' ? 'on p' : ''} onClick={() => setPeriod('month')}>최근 4주</button>
       </div>
       <div style={{ textAlign: 'center', fontSize: 11.5, color: 'var(--faint)', marginBottom: 8 }}>{caption}</div>
+
+      {/* 투자는 용돈 금액과 단위가 달라 그래프를 따로 둔다 — 관리·삭제는 "🌱 투자" 탭에서 한다. */}
+      <div className="sec-t" style={{ marginTop: 0 }}>🌱 투자 활동 <span className="cnt">용돈과 별도</span></div>
+      {investData.length ? <div className="card"><Bars data={investData} /></div>
+        : <div className="empty" style={{ padding: 20 }}>이 기간엔 투자 활동이 없어요</div>}
+
       <div className="card" style={{ display: 'flex', gap: 10, padding: 13 }}>
         <div style={{ flex: 1 }}><div className="rt" style={{ fontSize: 11.5, color: 'var(--muted)' }}>모은 돈</div>
           <div style={{ fontFamily: 'var(--disp)', fontSize: 20, color: 'var(--good)' }}>+{won(earned)}</div></div>
@@ -417,11 +423,6 @@ export function Stats({ kid, tx, investTx = [], allowanceDay = 6, onDelete }) {
             <span className="vv">{won(d.total)}원</span></div>
         }) : <div className="empty" style={{ padding: 10 }}>아직 퀘스트로 번 돈이 없어요</div>}
       </div>
-
-      {/* 투자는 용돈 금액과 단위가 달라 그래프를 따로 둔다 — 관리·삭제는 "🌱 투자" 탭에서 한다. */}
-      <div className="sec-t">🌱 투자 활동 <span className="cnt">용돈과 별도</span></div>
-      {investData.length ? <div className="card"><Bars data={investData} /></div>
-        : <div className="empty" style={{ padding: 20 }}>이 기간엔 투자 활동이 없어요</div>}
 
       {onDelete && (
         <>
