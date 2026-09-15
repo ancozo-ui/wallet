@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
-import { QCAT, PRESET_QUESTS, catInfo, won, stars, WEEKDAYS, allowanceWeekStart, txIcon } from './const'
-import { Sheet, Donut, Bars, ActionButton, useIdemToken, PushToggle } from './ui'
+import { QCAT, PRESET_QUESTS, catInfo, won, stars, WEEKDAYS, allowanceWeekStart, txIcon, investBand } from './const'
+import { Sheet, Donut, Bars, InvestVine, InvestTree, ActionButton, useIdemToken, PushToggle } from './ui'
 import * as api from './api'
 
 export default function Parent({ ctx }) {
@@ -24,7 +24,7 @@ export default function Parent({ ctx }) {
 
   const nav = [
     ['home', '🏠', '홈'], ['queue', '📥', '승인함', queueCount],
-    ['quests', '🏆', '퀘스트'], ['stats', '📊', '분석'],
+    ['quests', '🏆', '퀘스트'], ['invest', '🌱', '투자'], ['stats', '📊', '분석'],
   ]
 
   return (
@@ -52,6 +52,23 @@ export default function Parent({ ctx }) {
         {tab === 'queue' && <Queue completions={completions} reqs={reqs} kmap={kmap} A={A} />}
         {tab === 'quests' && <Quests kids={kids} quests={data.quests} onNew={() => setSheet({ t: 'quest' })}
           onEdit={(q) => setSheet({ t: 'questedit', quest: q })} onPreset={() => setSheet({ t: 'preset' })} />}
+        {tab === 'invest' && (
+          <>
+            {kids.length > 1 && (
+              <div className="seg" style={{ margin: '8px 0 2px' }}>
+                {kids.map((k) => (
+                  <button key={k.id} className={focusKid === k.id ? 'on p' : ''} onClick={() => setFocus(k.id)}>
+                    {k.emoji} {k.name}
+                  </button>
+                ))}
+              </div>
+            )}
+            <Invest kid={kmap[focusKid]} tx={(data.investTx || []).filter((t) => t.member_id === focusKid)}
+              ticks={data.investTicks || []} generalTx={data.tx.filter((t) => t.member_id === focusKid)}
+              onDelete={(d) => setSheet(d.kind === 'interest' ? { t: 'delinterest', tx: d.tx } : { t: 'deltx', tx: d.tx })}
+              readOnly />
+          </>
+        )}
         {tab === 'stats' && (
           <>
             {/* 분석 탭으로 바로 들어오면 첫째만 보여서, 여기서 아이를 바꿀 수 있게 한다. */}
@@ -65,6 +82,7 @@ export default function Parent({ ctx }) {
               </div>
             )}
             <Stats kid={kmap[focusKid]} tx={data.tx.filter((t) => t.member_id === focusKid)}
+              investTx={(data.investTx || []).filter((t) => t.member_id === focusKid)}
               allowanceDay={allowanceDay} onDelete={(t) => setSheet({ t: 'deltx', tx: t })} />
           </>
         )}
@@ -87,6 +105,7 @@ export default function Parent({ ctx }) {
       {sheet?.t === 'preset' && <PresetQuestSheet kids={kids} quests={data.quests} A={A} onClose={() => setSheet(null)} />}
       {sheet?.t === 'questedit' && <QuestEditSheet q={sheet.quest} A={A} onClose={() => setSheet(null)} />}
       {sheet?.t === 'deltx' && <DeleteTxSheet tx={sheet.tx} A={A} onClose={() => setSheet(null)} />}
+      {sheet?.t === 'delinterest' && <DeleteInterestSheet tx={sheet.tx} A={A} onClose={() => setSheet(null)} />}
     </>
   )
 }
@@ -132,6 +151,7 @@ function Queue({ completions, reqs, kmap, A }) {
   const spend = reqs.filter((r) => r.kind === 'spend')
   const transfer = reqs.filter((r) => r.kind === 'transfer')
   const proposal = reqs.filter((r) => r.kind === 'proposal')
+  const investWithdraw = reqs.filter((r) => r.kind === 'invest_withdraw')
   const [confirmQ, setConfirmQ] = useState(null)
   if (!completions.length && !reqs.length)
     return <div className="empty"><span className="e">🎉</span>모두 처리했어요!<br />승인 대기 중인 요청이 없습니다.</div>
@@ -188,6 +208,22 @@ function Queue({ completions, reqs, kmap, A }) {
             <div className="btn-row" style={{ marginLeft: 'auto' }}>
               <ActionButton className="btn line sm" onClick={() => A.run(() => api.rejectRequest(p.id), '거절했어요')}>거절</ActionButton>
               <ActionButton className="btn pri sm" onClick={() => A.run(() => api.approveRequest(p.id, A.actor), '송금을 승인했어요')}>승인</ActionButton>
+            </div>
+          </div>
+        </div>
+      ))}
+
+      {investWithdraw.length > 0 && <div className="sec-t">🌱 투자금 인출 요청 <span className="cnt">{investWithdraw.length}</span></div>}
+      {investWithdraw.map((p) => (
+        <div className="req invest" key={p.id}>
+          <div className="rk" style={{ color: 'var(--mint-ink)' }}>투자 지갑에서 인출</div>
+          <div className="rt">{nm(p.member_id)}</div>
+          <div className="rd">"{p.memo}"</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div className="amt-big">{won(p.amount)}원</div>
+            <div className="btn-row" style={{ marginLeft: 'auto' }}>
+              <ActionButton className="btn line sm" onClick={() => A.run(() => api.rejectRequest(p.id), '거절했어요')}>거절</ActionButton>
+              <ActionButton className="btn pri sm" onClick={() => A.run(() => api.approveRequest(p.id, A.actor), '인출을 승인했어요')}>승인</ActionButton>
             </div>
           </div>
         </div>
@@ -307,19 +343,35 @@ export function QuestCard({ q, child, onApply, onSubmit, onCancel, onEdit }) {
   )
 }
 
-export function Stats({ kid, tx, allowanceDay = 6, onDelete }) {
+export function Stats({ kid, tx, investTx = [], allowanceDay = 6, onDelete }) {
   const [period, setPeriod] = useState('week')
   if (!kid) return <div className="empty">아이를 선택하세요</div>
 
   const weekStart = allowanceWeekStart(allowanceDay)
   const from = period === 'month' ? weekStart.getTime() - 21 * 86400 * 1000 : weekStart.getTime()
-  const ftx = tx.filter((t) => new Date(t.created_at).getTime() >= from)
+  // 투자 입출금(grp='invest')은 수입/지출이 아니라 "돈을 옮긴 것"이라 여기 집계에서 뺀다 —
+  // 안 빼면 투자하기가 '쓴 돈'으로, 인출이 '번 돈'으로 잡혀 숫자가 왜곡된다.
+  // "바로 투자로" 줄 때 같이 생기는 "용돈 지급" 기록(related_id 로 투자와 짝지어짐)도
+  // 실제로는 한 번도 쓸 수 있는 돈이 된 적이 없으므로 함께 뺀다.
+  const ftx = tx.filter((t) => new Date(t.created_at).getTime() >= from && t.grp !== 'invest' && !t.related_id)
   const inWin = ftx.length
   const caption = period === 'week'
     ? `${weekStart.getMonth() + 1}월 ${weekStart.getDate()}일(${WEEKDAYS[allowanceDay]}) 지급일부터`
     : '최근 4주'
   const spent = ftx.filter((t) => t.sign < 0).reduce((a, t) => a + t.amount, 0)
   const earned = ftx.filter((t) => t.sign > 0).reduce((a, t) => a + t.amount, 0)
+
+  // 투자는 용돈과 금액 단위가 다르다(목돈 vs 용돈) — 같은 그래프에 섞으면
+  // 비율이 깨지므로, 용돈 도넛/막대와는 완전히 분리된 자기들끼리의 그래프로 보여준다.
+  const investPeriod = investTx.filter((t) => new Date(t.created_at).getTime() >= from)
+  const investEarned = investPeriod.filter((t) => t.kind === 'interest').reduce((a, t) => a + t.amount, 0)
+  const investDeposited = investPeriod.filter((t) => t.kind === 'deposit').reduce((a, t) => a + t.amount, 0)
+  const investWithdrawn = investPeriod.filter((t) => t.kind === 'withdraw').reduce((a, t) => a + t.amount, 0)
+  const investData = [
+    { label: '투자금', emoji: '🌱', color: 'var(--mint)', value: investDeposited },
+    { label: '인출금', emoji: '💵', color: 'var(--spend)', value: investWithdrawn },
+    { label: '이자로 번 돈', emoji: '📈', color: 'var(--coin)', value: investEarned },
+  ].filter((d) => d.value > 0)
 
   const incomeCats = { weekly: ['주간 용돈', 'var(--mint)'], quest: ['퀘스트', 'var(--coin)'], transfer: ['받은 돈', 'var(--spend)'], manual: ['직접 받음', 'var(--mint-ink)'] }
   const inc = {}
@@ -347,15 +399,23 @@ export function Stats({ kid, tx, allowanceDay = 6, onDelete }) {
         <button className={period === 'month' ? 'on p' : ''} onClick={() => setPeriod('month')}>최근 4주</button>
       </div>
       <div style={{ textAlign: 'center', fontSize: 11.5, color: 'var(--faint)', marginBottom: 8 }}>{caption}</div>
-      <div className="card" style={{ display: 'flex', gap: 10, padding: 13 }}>
-        <div style={{ flex: 1 }}><div className="rt" style={{ fontSize: 11.5, color: 'var(--muted)' }}>모은 돈</div>
-          <div style={{ fontFamily: 'var(--disp)', fontSize: 20, color: 'var(--good)' }}>+{won(earned)}</div></div>
-        <div style={{ flex: 1 }}><div className="rt" style={{ fontSize: 11.5, color: 'var(--muted)' }}>쓴 돈</div>
-          <div style={{ fontFamily: 'var(--disp)', fontSize: 20, color: 'var(--danger)' }}>-{won(spent)}</div></div>
-      </div>
+
+      {/* 투자는 용돈 금액과 단위가 달라 그래프를 따로 둔다 — 관리·삭제는 "🌱 투자" 탭에서 한다. */}
+      <div className="sec-t" style={{ marginTop: 0 }}>🌱 투자 활동 <span className="cnt">용돈과 별도</span></div>
+      {investData.length ? <div className="card"><Bars data={investData} /></div>
+        : <div className="empty" style={{ padding: 20 }}>이 기간엔 투자 활동이 없어요</div>}
+
       {!inWin && <div className="empty" style={{ padding: 24 }}>이 기간엔 내역이 없어요<br />{period === 'week' ? '"최근 4주"로 넓혀 보세요' : ''}</div>}
       <div className="sec-t">{kid.emoji} {kid.name} · 💰 어디서 들어왔나</div>
-      <div className="card">{incData.length ? <Donut data={incData} /> : <div className="empty" style={{ padding: 10 }}>아직 수입이 없어요</div>}</div>
+      <div className="card">
+        <div style={{ display: 'flex', gap: 10, paddingBottom: 13, marginBottom: 13, borderBottom: '1px solid var(--line)' }}>
+          <div style={{ flex: 1 }}><div className="rt" style={{ fontSize: 11.5, color: 'var(--muted)' }}>모은 돈</div>
+            <div style={{ fontFamily: 'var(--disp)', fontSize: 20, color: 'var(--good)' }}>+{won(earned)}</div></div>
+          <div style={{ flex: 1 }}><div className="rt" style={{ fontSize: 11.5, color: 'var(--muted)' }}>쓴 돈</div>
+            <div style={{ fontFamily: 'var(--disp)', fontSize: 20, color: 'var(--danger)' }}>-{won(spent)}</div></div>
+        </div>
+        {incData.length ? <Donut data={incData} /> : <div className="empty" style={{ padding: 10 }}>아직 수입이 없어요</div>}
+      </div>
       <div className="sec-t">💸 돈이 어디로 나갔나</div>
       {spData.length ? <div className="card"><Bars data={spData} /></div> : <div className="empty" style={{ padding: 20 }}>아직 나간 돈이 없어요</div>}
       <div className="sec-t">🏆 퀘스트로 번 돈 · 힘든 정도</div>
@@ -393,15 +453,94 @@ export function Stats({ kid, tx, allowanceDay = 6, onDelete }) {
   )
 }
 
+// 투자 지갑 화면. 부모(읽기 전용)·아이(입금/인출 버튼) 양쪽에서 같은 모양으로 쓴다.
+export function Invest({ kid, tx, ticks, generalTx = [], onDeposit, onWithdraw, onDelete, readOnly }) {
+  const [openTick, setOpenTick] = useState(null)
+  if (!kid) return <div className="empty">아이를 선택하세요</div>
+  const total = (kid.invest_principal || 0) + (kid.invest_pending || 0)
+  const sorted = [...tx].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+
+  return (
+    <>
+      <div className="card invest-hero">
+        <div className="lab">🌱 투자 지갑</div>
+        <div><span className="amt">{won(total)}</span><span className="won"> 원</span></div>
+        {kid.invest_pending > 0 && (
+          <div className="note">이번에 넣은 {won(kid.invest_pending)}원은 다음 정산부터 이자가 붙어요</div>
+        )}
+      </div>
+      <div className="card">
+        {/* 아이는 자라는 나무로(직관적), 부모는 정밀한 그래프로(정확한 수치) */}
+        {readOnly
+          ? <InvestVine tx={tx} onTapTick={setOpenTick} />
+          : <InvestTree total={total} tx={tx} onTapTick={setOpenTick} />}
+      </div>
+      {!readOnly && (
+        <div className="btn-row">
+          <button className="btn pri" onClick={onDeposit}>🌱 투자하기</button>
+          <button className="btn line" onClick={onWithdraw}>💵 인출하기</button>
+        </div>
+      )}
+      <div className="sec-t">투자 내역{onDelete ? <span className="cnt">삭제 가능</span> : null}</div>
+      <div className="card" style={{ padding: '5px 13px' }}>
+        {sorted.length === 0 && <div className="empty" style={{ padding: 18 }}>아직 투자 내역이 없어요</div>}
+        {sorted.map((t) => {
+          const em = t.kind === 'interest' ? '📈' : t.kind === 'deposit' ? '🌱' : '💵'
+          const title = t.kind === 'interest' ? '이자가 붙었어요' : t.kind === 'deposit' ? '투자하기' : `인출 · ${t.memo || ''}`
+          // 입금/인출 삭제는 investTx 가 아니라 그와 연결된 transactions 행을 지워야 한다
+          // (delete_transaction 이 그걸 봄). 이자는 transactions 에 줄이 없어 별도 경로로 지운다.
+          const linked = onDelete && t.kind !== 'interest' ? generalTx.find((g) => g.invest_tx_id === t.id) : null
+          const canDeleteInterest = onDelete && t.kind === 'interest'
+          return (
+            <div className="tx" key={t.id} onClick={() => t.kind === 'interest' && setOpenTick(t)}
+              style={t.kind === 'interest' ? { cursor: 'pointer' } : null}>
+              <div className="ti ic-invest">{em}</div>
+              <div><div className="tl">{title}</div>
+                <div className="td">{new Date(t.created_at).toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric' })}</div></div>
+              <div className={'tv ' + (t.sign > 0 ? 'plus' : 'minus')} style={{ marginLeft: 'auto' }}>{t.sign > 0 ? '+' : '-'}{won(t.amount)}</div>
+              {canDeleteInterest && (
+                <button className="delbtn" onClick={(e) => { e.stopPropagation(); onDelete({ kind: 'interest', tx: t }) }} title="삭제">🗑</button>
+              )}
+              {linked && <button className="delbtn" onClick={(e) => { e.stopPropagation(); onDelete({ kind: 'tx', tx: linked }) }} title="삭제">🗑</button>}
+            </div>
+          )
+        })}
+      </div>
+      {openTick && <InvestTickSheet tx={openTick} ticks={ticks} onClose={() => setOpenTick(null)} />}
+    </>
+  )
+}
+
+function InvestTickSheet({ tx, ticks, onClose }) {
+  const [detail, setDetail] = useState(false)
+  const tick = ticks.find((k) => k.id === tx.tick_id)
+  const band = investBand(tick?.rate_pct ?? 1)
+  return (
+    <Sheet title={`${band.e} ${band.t}`} onClose={onClose}>
+      <div className="calc">+{won(tx.amount)}원</div>
+      {!detail ? (
+        <button className="btn line" style={{ marginTop: 10 }} onClick={() => setDetail(true)}>자세히 보기</button>
+      ) : tick ? (
+        <div className="msub" style={{ marginTop: 10, textAlign: 'center', lineHeight: 1.7 }}>
+          S&P500 지수가 {tick.change_pct}% {tick.change_pct > 0 ? '올라서' : tick.change_pct < 0 ? '내려서' : '제자리라서'} {tick.rate_pct}% 이율이 적용됐어요<br />
+          <span style={{ color: 'var(--faint)' }}>{tick.window_start} ~ {tick.window_end}</span>
+        </div>
+      ) : <div className="msub" style={{ marginTop: 10, textAlign: 'center' }}>자세한 정보를 찾을 수 없어요</div>}
+    </Sheet>
+  )
+}
+
 // ---------------- Sheets ----------------
 function GiveSheet({ kids, A, onClose }) {
   const token = useIdemToken()
   const [kid, setKid] = useState(kids[0]?.id || '')
   const [amt, setAmt] = useState('')
   const [memo, setMemo] = useState('')
+  const [toInvest, setToInvest] = useState(false)
   const go = async () => {
     if (!+amt) return
-    const ok = await A.run(() => api.give(kid, +amt, memo, A.actor, token), `${A.actor}가 용돈을 지급했어요 🎁`)
+    const ok = await A.run(() => api.give(kid, +amt, memo, A.actor, token, toInvest),
+      toInvest ? `${A.actor}가 투자 지갑으로 바로 넣었어요 🌱` : `${A.actor}가 용돈을 지급했어요 🎁`)
     if (ok) onClose()
   }
   return (
@@ -411,8 +550,16 @@ function GiveSheet({ kids, A, onClose }) {
           {kids.map((k) => <option key={k.id} value={k.id}>{k.emoji} {k.name} ({won(k.balance)}원)</option>)}
         </select></div>
       <div className="field"><label>금액 (원)</label><input type="number" inputMode="numeric" value={amt} onChange={(e) => setAmt(e.target.value)} placeholder="예: 3000" /></div>
-      <div className="field"><label>메모</label><input value={memo} onChange={(e) => setMemo(e.target.value)} placeholder="예: 이번 주 용돈" /></div>
-      <ActionButton className="btn pri" onClick={go}>용돈 주기</ActionButton>
+      <div className="field"><label>메모</label><input value={memo} onChange={(e) => setMemo(e.target.value)} placeholder="예: 할머니가 주신 용돈" /></div>
+      <button type="button" className="sblock" onClick={() => setToInvest((v) => !v)}
+        style={toInvest ? { borderColor: 'var(--mint)', background: 'var(--mint-soft)' } : null}>
+        <span className="em">🌱</span>
+        <div><div className="t">바로 투자 지갑으로</div>
+          <div className="d">목돈 선물 같은 건 용돈 지갑을 거치지 않고 바로 투자로 넣을 수 있어요</div></div>
+        <span className="rt" style={{ color: toInvest ? 'var(--mint-ink)' : 'var(--faint)' }}>{toInvest ? 'ON' : 'OFF'}</span>
+      </button>
+      <ActionButton className="btn pri" style={{ marginTop: 12 }} onClick={go}>
+        {toInvest ? '투자 지갑으로 넣기' : '용돈 주기'}</ActionButton>
     </Sheet>
   )
 }
@@ -595,8 +742,12 @@ function QuestEditSheet({ q, A, onClose }) {
 function DeleteTxSheet({ tx, A, onClose }) {
   const [pw, setPw] = useState('')
   const [busy, setBusy] = useState(false)
-  const back = tx.sign > 0
-    ? `아이 잔액에서 ${won(tx.amount)}원이 다시 회수돼요`
+  // 투자와 연결된 내역(바로 투자로 준 용돈, 아이의 투자하기, 인출 승인)은
+  // 이 한 줄만으로 잔액 변화를 예측할 수 없다 — 투자 지갑도 함께 움직인다.
+  const investLinked = tx.grp === 'invest' || !!tx.related_id
+  const back = investLinked
+    ? '투자 지갑과 연결된 내역이에요 · 삭제하면 투자 지갑 금액도 함께 되돌아가요'
+    : tx.sign > 0 ? `아이 잔액에서 ${won(tx.amount)}원이 다시 회수돼요`
     : `아이 잔액에 ${won(tx.amount)}원이 돌아가요`
   const go = async () => {
     if (!pw) return
@@ -612,6 +763,30 @@ function DeleteTxSheet({ tx, A, onClose }) {
       <div className="calc" style={{ background: 'var(--surface-2)', color: 'var(--ink)' }}>
         {tx.label} · {tx.sign > 0 ? '+' : '-'}{won(tx.amount)}원</div>
       <div className="msub" style={{ marginTop: 8 }}>{back}</div>
+      <div className="field" style={{ marginTop: 12 }}><label>부모 비밀번호 확인</label>
+        <input type="password" value={pw} onChange={(e) => setPw(e.target.value)} placeholder="비밀번호를 한 번 더 입력" /></div>
+      <button className="btn danger" disabled={busy} onClick={go}>{busy ? '확인 중…' : '삭제하기'}</button>
+    </Sheet>
+  )
+}
+
+// 이자 지급 내역 삭제 — transactions 에 줄이 없어 DeleteTxSheet 와는 다른 RPC(delete_invest_interest)를 쓴다.
+function DeleteInterestSheet({ tx, A, onClose }) {
+  const [pw, setPw] = useState('')
+  const [busy, setBusy] = useState(false)
+  const go = async () => {
+    if (!pw) return
+    setBusy(true)
+    try { await api.verifyPassword(pw) }
+    catch (e) { A.toast('⚠️ ' + (e.message || '비밀번호 오류')); setBusy(false); return }
+    const ok = await A.run(() => api.deleteInvestInterest(tx.id), '이자 내역을 삭제하고 투자 원금을 되돌렸어요')
+    setBusy(false)
+    if (ok) onClose()
+  }
+  return (
+    <Sheet title="🗑 이자 내역 삭제" sub="대시보드 정확성을 위한 관리 기능이에요" onClose={onClose}>
+      <div className="calc" style={{ background: 'var(--surface-2)', color: 'var(--ink)' }}>이자 · +{won(tx.amount)}원</div>
+      <div className="msub" style={{ marginTop: 8 }}>투자 원금에서 {won(tx.amount)}원이 다시 회수돼요</div>
       <div className="field" style={{ marginTop: 12 }}><label>부모 비밀번호 확인</label>
         <input type="password" value={pw} onChange={(e) => setPw(e.target.value)} placeholder="비밀번호를 한 번 더 입력" /></div>
       <button className="btn danger" disabled={busy} onClick={go}>{busy ? '확인 중…' : '삭제하기'}</button>

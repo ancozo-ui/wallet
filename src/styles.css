@@ -125,6 +125,30 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
 .balance .note{position:relative;margin-top:12px;background:rgba(255,255,255,.2);border-radius:11px;
   padding:9px 11px;font-size:11.5px;font-weight:600;line-height:1.5}
 
+/* 투자 지갑 — 용돈(balance)과 시각적으로 구분되게 그라데이션 대신 연한 민트 톤을 쓴다 */
+.invest-hero{background:var(--mint-soft);border:none}
+.invest-hero .lab{font-size:12.5px;font-weight:700;color:var(--mint-ink)}
+.invest-hero .amt{font-family:var(--disp);font-size:36px;line-height:1.05;margin:2px 0 3px;color:var(--mint-ink)}
+.invest-hero .won{font-size:18px;color:var(--mint-ink);opacity:.8}
+.invest-hero .note{margin-top:10px;font-size:11.5px;color:var(--mint-ink);background:rgba(255,255,255,.4);
+  border-radius:11px;padding:8px 11px;font-weight:600;line-height:1.5}
+.ic-invest{background:var(--mint-soft)}
+
+/* 투자 나무(아이 화면) — 선 그래프 대신 자라는 나무 일러스트로 */
+.tree-plot{display:flex;flex-direction:column;align-items:center;padding:10px 4px 4px;text-align:center}
+.tree-main{font-size:76px;line-height:1;filter:drop-shadow(0 6px 10px rgba(15,169,140,.25))}
+/* 30만원 이상은 나무가 여러 그루(숲) — 한 칸에 다 담기게 줄이고 감싼다 */
+.tree-main.forest{display:flex;flex-wrap:wrap;justify-content:center;gap:2px;max-width:260px;font-size:38px}
+.tree-label{font-size:12.5px;font-weight:700;color:var(--muted);margin-top:6px}
+.tree-scatter{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;margin-top:14px;max-width:260px}
+.tseed{font-size:19px;opacity:0;transition:.15s;animation:tpop .35s ease forwards;
+  animation-delay:calc(var(--i, 0) * 45ms)}
+.tseed.tick{cursor:pointer}
+.tseed.tick:active{transform:scale(.85)}
+@keyframes tpop{from{opacity:0;transform:translateY(4px) scale(.6)}to{opacity:.85;transform:none}}
+@media (prefers-reduced-motion:reduce){.tseed{animation:none;opacity:.85}}
+.req.invest{border-left-color:var(--mint)}
+
 .kidcard{display:flex;align-items:center;gap:12px;cursor:pointer}
 .kidcard .av{width:46px;height:46px;border-radius:14px;font-size:24px;display:flex;align-items:center;
   justify-content:center;background:var(--mint-soft)}

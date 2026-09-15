@@ -47,5 +47,14 @@ export function txIcon(t){
   if (t.grp === 'income') return t.category === 'quest' ? ['🏆','ic-quest'] : ['🎁','ic-give']
   if (t.grp === 'fine') return ['⚠️','ic-fine']
   if (t.grp === 'transfer') return ['💌','ic-tr']
+  if (t.grp === 'invest') return t.category === 'invest_deposit' ? ['🌱','ic-invest'] : ['💵','ic-invest']
   return [catInfo(t.category).e, 'ic-spend']
+}
+
+// 투자 이자율을 아이가 알아듣는 말로. supabase/functions/notify 의 investBand 와 짝을 맞춘다.
+export function investBand(ratePct) {
+  const r = Number(ratePct)
+  if (r >= 5) return { e: '📈', t: '세계 경제가 좋았어요' }
+  if (r <= 1.5) return { e: '📉', t: '세계 경제가 주춤했어요' }
+  return { e: '📊', t: '세계 경제가 보통이었어요' }
 }

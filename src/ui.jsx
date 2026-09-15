@@ -148,6 +148,92 @@ export function Bars({ data }) {
   )
 }
 
+// 투자 지갑 성장 그래프. 진짜 그래프(시간 x축, 금액 y축)인데 이자 지급 지점마다
+// 잎이 돋게 꾸며서 화분처럼도 읽힌다 — 나중엔 잎 장식만 빼면 그냥 그래프로 남는다.
+// Donut/Bars 와 같은 컨벤션으로 손으로 그린 SVG(라이브러리 없음).
+export function InvestVine({ tx, onTapTick }) {
+  const sorted = [...tx].sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+  if (!sorted.length) {
+    return <div className="empty" style={{ padding: 26 }}>아직 투자를 시작하지 않았어요<br />🌱 투자하기로 첫 씨앗을 심어보세요</div>
+  }
+  let cum = 0
+  const pts = [{ i: 0, y: 0, t: null }]
+  sorted.forEach((t) => { cum += t.sign * t.amount; pts.push({ i: pts.length, y: cum, t }) })
+
+  const W = 300, H = 140, PAD = 16
+  const ys = pts.map((p) => p.y)
+  const maxY = Math.max(...ys, 1), minY = Math.min(...ys, 0)
+  const span = Math.max(maxY - minY, 1)
+  const lastI = pts.length - 1 || 1
+  const sx = (i) => PAD + (i / lastI) * (W - PAD * 2)
+  const sy = (y) => H - PAD - ((y - minY) / span) * (H - PAD * 2)
+  const line = pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${sx(i).toFixed(1)} ${sy(p.y).toFixed(1)}`).join(' ')
+  const area = `${line} L ${sx(lastI).toFixed(1)} ${H - PAD} L ${sx(0).toFixed(1)} ${H - PAD} Z`
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={H} className="vine">
+      <defs>
+        <linearGradient id="vineFill" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="var(--mint)" stopOpacity="0.28" />
+          <stop offset="100%" stopColor="var(--mint)" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <path d={area} fill="url(#vineFill)" stroke="none" />
+      <path d={line} fill="none" stroke="var(--mint)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+      {pts.map((p) => p.t?.kind === 'interest' && (
+        <text key={p.i} x={sx(p.i)} y={sy(p.y) - 6} textAnchor="middle" fontSize="15"
+          style={{ cursor: onTapTick ? 'pointer' : 'default' }} onClick={() => onTapTick?.(p.t)}>🌿</text>
+      ))}
+    </svg>
+  )
+}
+
+// 선 그래프는 아이 눈높이엔 밋밋하다 — 대신 투자 총액에 따라 자라는 나무로 보여준다.
+// 정확한 수치보다 "커지고 있다"는 느낌이 먼저 와닿게. 부모는 InvestVine(정밀 그래프)을 본다.
+// 이모지는 전부 유니코드 6.0(2010)급 오래된 것만 쓴다 — 🪴(화분) 같은 최신
+// 이모지는 구형 기기 폰트에 없어서 빈 네모(□)로 깨지는 경우가 있었다.
+const TREE_STAGES = [
+  { max: 5000, e: '🌱', label: '씨앗' },
+  { max: 30000, e: '🌿', label: '새싹' },
+  { max: 100000, e: '🍀', label: '어린 나무' },
+  { max: 300000, e: '🌳', label: '나무' },
+  { max: Infinity, e: '🌲', label: '큰 나무' },
+]
+// 큰 나무(30만원+) 단계는 끝이 아니다 — 30만원을 더 모을 때마다 나무가
+// 한 그루씩 늘어나 숲이 된다(최대 8그루, 그 이상은 안 늘려 화면이 안 어지럽게).
+const FOREST_STEP = 300000
+const FOREST_MAX = 8
+function treeStage(total) {
+  const stage = TREE_STAGES.find((s) => total < s.max) || TREE_STAGES[TREE_STAGES.length - 1]
+  const count = total >= FOREST_STEP ? Math.min(Math.floor(total / FOREST_STEP), FOREST_MAX) : 1
+  return { ...stage, count }
+}
+
+export function InvestTree({ total, tx, onTapTick }) {
+  const sorted = [...tx].sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+  if (!sorted.length) {
+    return <div className="empty" style={{ padding: 26 }}>아직 투자를 시작하지 않았어요<br />🌱 투자하기로 첫 씨앗을 심어보세요</div>
+  }
+  const stage = treeStage(total)
+  const recent = sorted.slice(-12) // 너무 많으면 어지러우니 최근 것만
+  return (
+    <div className="tree-plot">
+      <div className={'tree-main' + (stage.count > 1 ? ' forest' : '')}>
+        {stage.count > 1 ? Array.from({ length: stage.count }, (_, i) => <span key={i}>{stage.e}</span>) : stage.e}
+      </div>
+      <div className="tree-label">{stage.label} · {won(total)}원</div>
+      <div className="tree-scatter">
+        {recent.map((t, i) => (
+          <span key={t.id} className={'tseed' + (t.kind === 'interest' ? ' tick' : '')} style={{ '--i': i }}
+            onClick={() => t.kind === 'interest' && onTapTick?.(t)}>
+            {t.kind === 'interest' ? '🍃' : t.kind === 'withdraw' ? '🍂' : '🌱'}
+          </span>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export function Toast({ msg }) {
   if (!msg) return null
   return <div className="toast">{msg}</div>

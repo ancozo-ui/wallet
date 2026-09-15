@@ -12,6 +12,10 @@ const CAT: Record<string, string> = {
   gift: "선물", donate: "기부", game: "게임", tv: "TV",
 };
 
+// src/const.js 의 INVEST_BAND 와 짝을 맞춘 문구. 숫자보다 먼저 말로 설명해준다.
+const investBand = (rate: number) =>
+  rate >= 5 ? "세계 경제가 좋았어요 📈" : rate <= 1.5 ? "세계 경제가 주춤했어요 📉" : "세계 경제가 보통이었어요 📊";
+
 type Member = { id: string; role: string; name: string };
 type Target = { memberId: string; title: string; body: string; tag: string };
 
@@ -97,6 +101,9 @@ function buildTargets(p: any, parents: string[], nameOf: (id: string) => string)
       return toParents("💌 송금 요청", `${kid} → ${nameOf(p.to_member_id)} ${amt}원`);
     case "proposal_request":
       return toParents("🏆 퀘스트 제안", `${kid}이(가) "${p.title}"을(를) 제안했어요 (${won(p.reward)}원)`);
+    case "invest_withdraw_request":
+      return toParents("🌱 투자금 인출 요청",
+        `${kid}이(가) 투자 지갑에서 ${amt}원 빼고 싶어해요${p.memo ? ` · "${p.memo}"` : ""}`);
     case "quest_submitted":
       return toParents("⏳ 완료 확인 기다려요",
         `${kid}이(가) "${p.title}"을(를) 끝냈대요${p.qty ? ` (${p.qty}${p.unit ?? ""})` : ""}`);
@@ -114,6 +121,10 @@ function buildTargets(p: any, parents: string[], nameOf: (id: string) => string)
       }
       if (p.kind === "proposal") {
         return [{ memberId: p.member_id, title: "🏆 퀘스트가 생겼어요!", body: `"${p.title}" 이제 도전할 수 있어요`, tag }];
+      }
+      if (p.kind === "invest_withdraw") {
+        return [{ memberId: p.member_id, title: "✅ 인출됐어요!",
+          body: `${p.memo ? `"${p.memo}" ` : ""}${amt}원이 용돈 지갑으로 들어왔어요`, tag }];
       }
       return [{ memberId: p.member_id, title: "✅ 허락받았어요!",
         body: `${p.memo ? `"${p.memo}" ` : ""}${amt}원을 쓸 수 있어요`, tag }];
@@ -133,6 +144,10 @@ function buildTargets(p: any, parents: string[], nameOf: (id: string) => string)
     case "fine_issued":
       return [{ memberId: p.member_id, title: "⚠️ 벌금이 있어요",
         body: `${p.reason ?? "약속 어김"} -${amt}원 · 앱에서 확인해주세요`, tag }];
+
+    case "invest_tick_earned":
+      return [{ memberId: p.member_id, title: "📈 투자 소식이 왔어요!",
+        body: `${investBand(Number(p.rate_pct))} · +${amt}원`, tag }];
 
     default:
       return [];
