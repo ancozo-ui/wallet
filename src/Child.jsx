@@ -382,6 +382,7 @@ function SubmitSheet({ q, ctx, onClose }) {
 
 function InvestDepositSheet({ me, available, ctx, onClose }) {
   const token = useIdemToken()
+  const investTotal = (me.invest_principal || 0) + (me.invest_pending || 0)
   const [amt, setAmt] = useState('')
   const go = async () => {
     if (!+amt) return
@@ -390,8 +391,14 @@ function InvestDepositSheet({ me, available, ctx, onClose }) {
     if (ok) onClose()
   }
   return (
-    <Sheet title="🌱 투자하기" sub={`쓸 수 있는 돈 ${won(available)}원 · 승인 없이 바로 들어가요`} onClose={onClose}>
-      <div className="field"><label>투자할 금액 (원)</label>
+    <Sheet title="🌱 투자하기" sub="용돈 지갑에 있는 돈을 투자 지갑으로 옮겨요 · 승인 없이 바로 들어가요" onClose={onClose}>
+      <div className="btn-row" style={{ marginBottom: 4 }}>
+        <div className="calc" style={{ background: 'var(--surface-2)', color: 'var(--ink)', flex: 1 }}>
+          💰 용돈 지갑<br /><b>{won(available)}원</b></div>
+        <div className="calc" style={{ flex: 1 }}>
+          🌱 투자 지갑<br /><b>{won(investTotal)}원</b></div>
+      </div>
+      <div className="field" style={{ marginTop: 10 }}><label>용돈 지갑에서 얼마를 옮길까요? (원)</label>
         <input type="number" inputMode="numeric" value={amt} onChange={(e) => setAmt(e.target.value)} placeholder="예: 50000" /></div>
       <div className="insight"><span className="q">💡</span>
         <span>지금 넣은 돈은 다음 정산부터 이자가 붙기 시작해요</span></div>
