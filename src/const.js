@@ -52,9 +52,10 @@ export function txIcon(t){
 }
 
 // 투자 이자율을 아이가 알아듣는 말로. supabase/functions/notify 의 investBand 와 짝을 맞춘다.
+// 기준은 invest_config 기본값(0.15~0.5%)에 맞춘 것 — 그 설정을 바꾸면 이 경계도 같이 조정해야 한다.
 export function investBand(ratePct) {
   const r = Number(ratePct)
-  if (r >= 5) return { e: '📈', t: '세계 경제가 좋았어요' }
-  if (r <= 1.5) return { e: '📉', t: '세계 경제가 주춤했어요' }
+  if (r >= 0.4) return { e: '📈', t: '세계 경제가 좋았어요' }
+  if (r <= 0.2) return { e: '📉', t: '세계 경제가 주춤했어요' }
   return { e: '📊', t: '세계 경제가 보통이었어요' }
 }
