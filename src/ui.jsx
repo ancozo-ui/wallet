@@ -199,8 +199,14 @@ const TREE_STAGES = [
   { max: 300000, e: '🌳', label: '나무' },
   { max: Infinity, e: '🌲', label: '큰 나무' },
 ]
+// 큰 나무(30만원+) 단계는 끝이 아니다 — 30만원을 더 모을 때마다 나무가
+// 한 그루씩 늘어나 숲이 된다(최대 8그루, 그 이상은 안 늘려 화면이 안 어지럽게).
+const FOREST_STEP = 300000
+const FOREST_MAX = 8
 function treeStage(total) {
-  return TREE_STAGES.find((s) => total < s.max) || TREE_STAGES[TREE_STAGES.length - 1]
+  const stage = TREE_STAGES.find((s) => total < s.max) || TREE_STAGES[TREE_STAGES.length - 1]
+  const count = total >= FOREST_STEP ? Math.min(Math.floor(total / FOREST_STEP), FOREST_MAX) : 1
+  return { ...stage, count }
 }
 
 export function InvestTree({ total, tx, onTapTick }) {
@@ -212,7 +218,9 @@ export function InvestTree({ total, tx, onTapTick }) {
   const recent = sorted.slice(-12) // 너무 많으면 어지러우니 최근 것만
   return (
     <div className="tree-plot">
-      <div className="tree-main">{stage.e}</div>
+      <div className={'tree-main' + (stage.count > 1 ? ' forest' : '')}>
+        {stage.count > 1 ? Array.from({ length: stage.count }, (_, i) => <span key={i}>{stage.e}</span>) : stage.e}
+      </div>
       <div className="tree-label">{stage.label} · {won(total)}원</div>
       <div className="tree-scatter">
         {recent.map((t, i) => (

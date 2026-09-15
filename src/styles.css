@@ -137,6 +137,8 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
 /* 투자 나무(아이 화면) — 선 그래프 대신 자라는 나무 일러스트로 */
 .tree-plot{display:flex;flex-direction:column;align-items:center;padding:10px 4px 4px;text-align:center}
 .tree-main{font-size:76px;line-height:1;filter:drop-shadow(0 6px 10px rgba(15,169,140,.25))}
+/* 30만원 이상은 나무가 여러 그루(숲) — 한 칸에 다 담기게 줄이고 감싼다 */
+.tree-main.forest{display:flex;flex-wrap:wrap;justify-content:center;gap:2px;max-width:260px;font-size:38px}
 .tree-label{font-size:12.5px;font-weight:700;color:var(--muted);margin-top:6px}
 .tree-scatter{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;margin-top:14px;max-width:260px}
 .tseed{font-size:19px;opacity:0;transition:.15s;animation:tpop .35s ease forwards;
