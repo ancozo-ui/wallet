@@ -20,29 +20,41 @@ export const createFamily = (name, parentName) =>
 // ---- 데이터 로드 ----
 export async function loadParent() {
   await expireQuests()
-  const [family, kids, tx, quests, requests] = await Promise.all([
+  const [family, kids, tx, quests, requests, investTx, investTicks] = await Promise.all([
     supabase.from('families').select('*').limit(1).maybeSingle(),
     supabase.from('members').select('*').eq('role', 'child').order('sort').order('created_at'),
     supabase.from('transactions').select('*').order('created_at', { ascending: false }),
     supabase.from('quests').select('*').order('created_at', { ascending: false }),
     supabase.from('requests').select('*').eq('status', 'pending').order('created_at'),
+    supabase.from('invest_transactions').select('*').order('created_at', { ascending: false }),
+    supabase.from('invest_ticks').select('*').order('window_start', { ascending: false }),
   ])
-  for (const r of [family, kids, tx, quests, requests]) if (r.error) throw r.error
-  return { family: family.data, kids: kids.data, tx: tx.data, quests: quests.data, requests: requests.data }
+  for (const r of [family, kids, tx, quests, requests, investTx, investTicks]) if (r.error) throw r.error
+  return {
+    family: family.data, kids: kids.data, tx: tx.data, quests: quests.data, requests: requests.data,
+    investTx: investTx.data, investTicks: investTicks.data,
+  }
 }
 export async function loadChild(memberId) {
   await expireQuests()
-  const [family, me, tx, quests, fines, mypend, sibs] = await Promise.all([
+  const [family, me, tx, quests, fines, mypend, sibs, investTx, investTicks] = await Promise.all([
     supabase.from('families').select('*').limit(1).maybeSingle(),
     supabase.from('members').select('*').eq('id', memberId).single(),
     supabase.from('transactions').select('*').eq('member_id', memberId).order('created_at', { ascending: false }),
     supabase.from('quests').select('*').eq('member_id', memberId).order('created_at', { ascending: false }),
     supabase.from('requests').select('*').eq('kind', 'fine').eq('status', 'pending'),
+    // invest_withdraw 는 여기 넣지 않는다 — 이건 일반 잔액(reserved)이 아니라 투자 잔액에서 빠질 돈이라서.
     supabase.from('requests').select('*').eq('member_id', memberId).eq('status', 'pending').in('kind', ['spend', 'transfer']),
     supabase.rpc('list_siblings'),
+    supabase.from('invest_transactions').select('*').eq('member_id', memberId).order('created_at', { ascending: false }),
+    supabase.from('invest_ticks').select('*').order('window_start', { ascending: false }),
   ])
-  for (const r of [family, me, tx, quests, fines, mypend, sibs]) if (r.error) throw r.error
-  return { family: family.data, me: me.data, tx: tx.data, quests: quests.data, fines: fines.data, myPending: mypend.data || [], siblings: sibs.data || [] }
+  for (const r of [family, me, tx, quests, fines, mypend, sibs, investTx, investTicks]) if (r.error) throw r.error
+  return {
+    family: family.data, me: me.data, tx: tx.data, quests: quests.data, fines: fines.data,
+    myPending: mypend.data || [], siblings: sibs.data || [],
+    investTx: investTx.data, investTicks: investTicks.data,
+  }
 }
 export async function updateFamily(id, fields) {
   const { error } = await supabase.from('families').update(fields).eq('id', id)
@@ -120,6 +132,8 @@ export async function addChild({ name, emoji, rate, loginId, pin }) {
 
 // ---- 아이 행위 ----
 export const ackFine = (id) => rpc('acknowledge_fine', { p_request: id, p_token: tok() })
+// 투자하기 — 승인 필요 없이 즉시 반영(자기 돈을 투자하는 걸 막을 이유는 없음)
+export const investDeposit = (amount, token) => rpc('invest_deposit', { p_amount: amount, p_token: token || tok() })
 export const applyQuest = (id) => rpc('apply_quest', { p_quest: id })
 export const cancelQuest = (id) => rpc('cancel_quest', { p_quest: id })
 export const submitQuest = (id, qty, diff) => rpc('submit_quest', { p_quest: id, p_qty: qty, p_diff: diff })
@@ -142,7 +156,7 @@ export async function createRequest(familyId, memberId, payload) {
 // ---- 실시간 ----
 export function subscribeFamily(onChange) {
   const ch = supabase.channel('family-changes')
-  for (const table of ['members', 'transactions', 'quests', 'requests']) {
+  for (const table of ['members', 'transactions', 'quests', 'requests', 'invest_transactions', 'invest_ticks']) {
     ch.on('postgres_changes', { event: '*', schema: 'public', table }, onChange)
   }
   ch.subscribe()

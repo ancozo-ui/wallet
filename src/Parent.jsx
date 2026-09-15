@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
-import { QCAT, PRESET_QUESTS, catInfo, won, stars, WEEKDAYS, allowanceWeekStart, txIcon } from './const'
-import { Sheet, Donut, Bars, ActionButton, useIdemToken, PushToggle } from './ui'
+import { QCAT, PRESET_QUESTS, catInfo, won, stars, WEEKDAYS, allowanceWeekStart, txIcon, investBand } from './const'
+import { Sheet, Donut, Bars, InvestVine, ActionButton, useIdemToken, PushToggle } from './ui'
 import * as api from './api'
 
 export default function Parent({ ctx }) {
@@ -24,7 +24,7 @@ export default function Parent({ ctx }) {
 
   const nav = [
     ['home', '🏠', '홈'], ['queue', '📥', '승인함', queueCount],
-    ['quests', '🏆', '퀘스트'], ['stats', '📊', '분석'],
+    ['quests', '🏆', '퀘스트'], ['invest', '🌱', '투자'], ['stats', '📊', '분석'],
   ]
 
   return (
@@ -52,6 +52,21 @@ export default function Parent({ ctx }) {
         {tab === 'queue' && <Queue completions={completions} reqs={reqs} kmap={kmap} A={A} />}
         {tab === 'quests' && <Quests kids={kids} quests={data.quests} onNew={() => setSheet({ t: 'quest' })}
           onEdit={(q) => setSheet({ t: 'questedit', quest: q })} onPreset={() => setSheet({ t: 'preset' })} />}
+        {tab === 'invest' && (
+          <>
+            {kids.length > 1 && (
+              <div className="seg" style={{ margin: '8px 0 2px' }}>
+                {kids.map((k) => (
+                  <button key={k.id} className={focusKid === k.id ? 'on p' : ''} onClick={() => setFocus(k.id)}>
+                    {k.emoji} {k.name}
+                  </button>
+                ))}
+              </div>
+            )}
+            <Invest kid={kmap[focusKid]} tx={(data.investTx || []).filter((t) => t.member_id === focusKid)}
+              ticks={data.investTicks || []} readOnly />
+          </>
+        )}
         {tab === 'stats' && (
           <>
             {/* 분석 탭으로 바로 들어오면 첫째만 보여서, 여기서 아이를 바꿀 수 있게 한다. */}
@@ -65,6 +80,7 @@ export default function Parent({ ctx }) {
               </div>
             )}
             <Stats kid={kmap[focusKid]} tx={data.tx.filter((t) => t.member_id === focusKid)}
+              investTx={(data.investTx || []).filter((t) => t.member_id === focusKid)}
               allowanceDay={allowanceDay} onDelete={(t) => setSheet({ t: 'deltx', tx: t })} />
           </>
         )}
@@ -132,6 +148,7 @@ function Queue({ completions, reqs, kmap, A }) {
   const spend = reqs.filter((r) => r.kind === 'spend')
   const transfer = reqs.filter((r) => r.kind === 'transfer')
   const proposal = reqs.filter((r) => r.kind === 'proposal')
+  const investWithdraw = reqs.filter((r) => r.kind === 'invest_withdraw')
   const [confirmQ, setConfirmQ] = useState(null)
   if (!completions.length && !reqs.length)
     return <div className="empty"><span className="e">🎉</span>모두 처리했어요!<br />승인 대기 중인 요청이 없습니다.</div>
@@ -188,6 +205,22 @@ function Queue({ completions, reqs, kmap, A }) {
             <div className="btn-row" style={{ marginLeft: 'auto' }}>
               <ActionButton className="btn line sm" onClick={() => A.run(() => api.rejectRequest(p.id), '거절했어요')}>거절</ActionButton>
               <ActionButton className="btn pri sm" onClick={() => A.run(() => api.approveRequest(p.id, A.actor), '송금을 승인했어요')}>승인</ActionButton>
+            </div>
+          </div>
+        </div>
+      ))}
+
+      {investWithdraw.length > 0 && <div className="sec-t">🌱 투자금 인출 요청 <span className="cnt">{investWithdraw.length}</span></div>}
+      {investWithdraw.map((p) => (
+        <div className="req invest" key={p.id}>
+          <div className="rk" style={{ color: 'var(--mint-ink)' }}>투자 지갑에서 인출</div>
+          <div className="rt">{nm(p.member_id)}</div>
+          <div className="rd">"{p.memo}"</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div className="amt-big">{won(p.amount)}원</div>
+            <div className="btn-row" style={{ marginLeft: 'auto' }}>
+              <ActionButton className="btn line sm" onClick={() => A.run(() => api.rejectRequest(p.id), '거절했어요')}>거절</ActionButton>
+              <ActionButton className="btn pri sm" onClick={() => A.run(() => api.approveRequest(p.id, A.actor), '인출을 승인했어요')}>승인</ActionButton>
             </div>
           </div>
         </div>
@@ -307,19 +340,24 @@ export function QuestCard({ q, child, onApply, onSubmit, onCancel, onEdit }) {
   )
 }
 
-export function Stats({ kid, tx, allowanceDay = 6, onDelete }) {
+export function Stats({ kid, tx, investTx = [], allowanceDay = 6, onDelete }) {
   const [period, setPeriod] = useState('week')
   if (!kid) return <div className="empty">아이를 선택하세요</div>
 
   const weekStart = allowanceWeekStart(allowanceDay)
   const from = period === 'month' ? weekStart.getTime() - 21 * 86400 * 1000 : weekStart.getTime()
-  const ftx = tx.filter((t) => new Date(t.created_at).getTime() >= from)
+  // 투자 입출금(grp='invest')은 수입/지출이 아니라 "돈을 옮긴 것"이라 여기 집계에서 뺀다 —
+  // 안 빼면 투자하기가 '쓴 돈'으로, 인출이 '번 돈'으로 잡혀 숫자가 왜곡된다.
+  const ftx = tx.filter((t) => new Date(t.created_at).getTime() >= from && t.grp !== 'invest')
   const inWin = ftx.length
   const caption = period === 'week'
     ? `${weekStart.getMonth() + 1}월 ${weekStart.getDate()}일(${WEEKDAYS[allowanceDay]}) 지급일부터`
     : '최근 4주'
   const spent = ftx.filter((t) => t.sign < 0).reduce((a, t) => a + t.amount, 0)
   const earned = ftx.filter((t) => t.sign > 0).reduce((a, t) => a + t.amount, 0)
+  const investEarned = investTx
+    .filter((t) => t.kind === 'interest' && new Date(t.created_at).getTime() >= from)
+    .reduce((a, t) => a + t.amount, 0)
 
   const incomeCats = { weekly: ['주간 용돈', 'var(--mint)'], quest: ['퀘스트', 'var(--coin)'], transfer: ['받은 돈', 'var(--spend)'], manual: ['직접 받음', 'var(--mint-ink)'] }
   const inc = {}
@@ -353,6 +391,13 @@ export function Stats({ kid, tx, allowanceDay = 6, onDelete }) {
         <div style={{ flex: 1 }}><div className="rt" style={{ fontSize: 11.5, color: 'var(--muted)' }}>쓴 돈</div>
           <div style={{ fontFamily: 'var(--disp)', fontSize: 20, color: 'var(--danger)' }}>-{won(spent)}</div></div>
       </div>
+      {investEarned > 0 && (
+        <div className="card" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 13 }}>
+          <div style={{ fontSize: 22 }}>📈</div>
+          <div><div className="rt" style={{ fontSize: 11.5, color: 'var(--muted)' }}>투자로 번 돈</div>
+            <div style={{ fontFamily: 'var(--disp)', fontSize: 18, color: 'var(--mint-ink)' }}>+{won(investEarned)}원</div></div>
+        </div>
+      )}
       {!inWin && <div className="empty" style={{ padding: 24 }}>이 기간엔 내역이 없어요<br />{period === 'week' ? '"최근 4주"로 넓혀 보세요' : ''}</div>}
       <div className="sec-t">{kid.emoji} {kid.name} · 💰 어디서 들어왔나</div>
       <div className="card">{incData.length ? <Donut data={incData} /> : <div className="empty" style={{ padding: 10 }}>아직 수입이 없어요</div>}</div>
@@ -390,6 +435,72 @@ export function Stats({ kid, tx, allowanceDay = 6, onDelete }) {
         </>
       )}
     </>
+  )
+}
+
+// 투자 지갑 화면. 부모(읽기 전용)·아이(입금/인출 버튼) 양쪽에서 같은 모양으로 쓴다.
+export function Invest({ kid, tx, ticks, onDeposit, onWithdraw, readOnly }) {
+  const [openTick, setOpenTick] = useState(null)
+  if (!kid) return <div className="empty">아이를 선택하세요</div>
+  const total = (kid.invest_principal || 0) + (kid.invest_pending || 0)
+  const sorted = [...tx].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+
+  return (
+    <>
+      <div className="card invest-hero">
+        <div className="lab">🌱 투자 지갑</div>
+        <div><span className="amt">{won(total)}</span><span className="won"> 원</span></div>
+        {kid.invest_pending > 0 && (
+          <div className="note">이번에 넣은 {won(kid.invest_pending)}원은 다음 정산부터 이자가 붙어요</div>
+        )}
+      </div>
+      <div className="card">
+        <InvestVine tx={tx} onTapTick={setOpenTick} />
+      </div>
+      {!readOnly && (
+        <div className="btn-row">
+          <button className="btn pri" onClick={onDeposit}>🌱 투자하기</button>
+          <button className="btn line" onClick={onWithdraw}>💵 인출하기</button>
+        </div>
+      )}
+      <div className="sec-t">투자 내역</div>
+      <div className="card" style={{ padding: '5px 13px' }}>
+        {sorted.length === 0 && <div className="empty" style={{ padding: 18 }}>아직 투자 내역이 없어요</div>}
+        {sorted.map((t) => {
+          const em = t.kind === 'interest' ? '📈' : t.kind === 'deposit' ? '🌱' : '💵'
+          const title = t.kind === 'interest' ? '이자가 붙었어요' : t.kind === 'deposit' ? '투자하기' : `인출 · ${t.memo || ''}`
+          return (
+            <div className="tx" key={t.id} onClick={() => t.kind === 'interest' && setOpenTick(t)}
+              style={t.kind === 'interest' ? { cursor: 'pointer' } : null}>
+              <div className="ti ic-invest">{em}</div>
+              <div><div className="tl">{title}</div>
+                <div className="td">{new Date(t.created_at).toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric' })}</div></div>
+              <div className={'tv ' + (t.sign > 0 ? 'plus' : 'minus')} style={{ marginLeft: 'auto' }}>{t.sign > 0 ? '+' : '-'}{won(t.amount)}</div>
+            </div>
+          )
+        })}
+      </div>
+      {openTick && <InvestTickSheet tx={openTick} ticks={ticks} onClose={() => setOpenTick(null)} />}
+    </>
+  )
+}
+
+function InvestTickSheet({ tx, ticks, onClose }) {
+  const [detail, setDetail] = useState(false)
+  const tick = ticks.find((k) => k.id === tx.tick_id)
+  const band = investBand(tick?.rate_pct ?? 1)
+  return (
+    <Sheet title={`${band.e} ${band.t}`} onClose={onClose}>
+      <div className="calc">+{won(tx.amount)}원</div>
+      {!detail ? (
+        <button className="btn line" style={{ marginTop: 10 }} onClick={() => setDetail(true)}>자세히 보기</button>
+      ) : tick ? (
+        <div className="msub" style={{ marginTop: 10, textAlign: 'center', lineHeight: 1.7 }}>
+          S&P500 지수가 {tick.change_pct}% {tick.change_pct > 0 ? '올라서' : tick.change_pct < 0 ? '내려서' : '제자리라서'} {tick.rate_pct}% 이율이 적용됐어요<br />
+          <span style={{ color: 'var(--faint)' }}>{tick.window_start} ~ {tick.window_end}</span>
+        </div>
+      ) : <div className="msub" style={{ marginTop: 10, textAlign: 'center' }}>자세한 정보를 찾을 수 없어요</div>}
+    </Sheet>
   )
 }
 

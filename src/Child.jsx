@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { CATS, BUY_CATS, QCAT, txIcon, won } from './const'
 import { Sheet, Stepper, Stars, ActionButton, useIdemToken, PushToggle } from './ui'
-import { QuestCard, Stats } from './Parent'
+import { QuestCard, Stats, Invest } from './Parent'
 import * as api from './api'
 
 // 돈이 모자랄 때 아이에게 보여줄 안내. 마이너스면 '채워야 한다'는 걸 먼저 알려준다.
@@ -100,11 +100,14 @@ export default function Child({ ctx }) {
         {tab === 'quests' && <Quests quests={data.quests} run={run}
           onSubmit={(q) => setSheet({ t: 'submit', q })} onCancel={(q) => setSheet({ t: 'cancel', q })}
           onPropose={() => setSheet({ t: 'propose' })} />}
-        {tab === 'stats' && <Stats kid={me} tx={data.tx} allowanceDay={data.family?.allowance_day ?? 6} />}
+        {tab === 'invest' && <Invest kid={me} tx={data.investTx || []} ticks={data.investTicks || []}
+          onDeposit={() => (blocked ? guide() : setSheet({ t: 'invest-deposit' }))}
+          onWithdraw={() => setSheet({ t: 'invest-withdraw' })} />}
+        {tab === 'stats' && <Stats kid={me} tx={data.tx} investTx={data.investTx || []} allowanceDay={data.family?.allowance_day ?? 6} />}
       </div>
 
       <div className="nav">
-        {[['home', '🏠', '홈'], ['spend', '💸', '지출'], ['quests', '🏆', '퀘스트'], ['stats', '📊', '분석']].map(([id, ic, lb]) => (
+        {[['home', '🏠', '홈'], ['spend', '💸', '지출'], ['invest', '🌱', '투자'], ['quests', '🏆', '퀘스트'], ['stats', '📊', '분석']].map(([id, ic, lb]) => (
           <button key={id} className={tab === id ? 'on' : ''} onClick={() => setTab(id)}><span className="ic">{ic}</span>{lb}</button>
         ))}
       </div>
@@ -115,6 +118,8 @@ export default function Child({ ctx }) {
       {sheet?.t === 'cancel' && <CancelSheet q={sheet.q} ctx={ctx} onClose={() => setSheet(null)} />}
       {sheet?.t === 'submit' && <SubmitSheet q={sheet.q} ctx={ctx} onClose={() => setSheet(null)} />}
       {sheet?.t === 'propose' && <ProposeSheet me={me} ctx={ctx} onClose={() => setSheet(null)} />}
+      {sheet?.t === 'invest-deposit' && <InvestDepositSheet me={me} available={available} ctx={ctx} onClose={() => setSheet(null)} />}
+      {sheet?.t === 'invest-withdraw' && <InvestWithdrawSheet me={me} ctx={ctx} onClose={() => setSheet(null)} />}
     </>
   )
 }
@@ -371,6 +376,52 @@ function SubmitSheet({ q, ctx, onClose }) {
         <div className="calc">{won(q.reward * qty)}원 받을 예정</div></div>}
       <div className="field"><label>얼마나 힘들었어요?</label><Stars value={diff} onChange={setDiff} /></div>
       <ActionButton className="btn coin" onClick={go}>완료 제출하기 ✓</ActionButton>
+    </Sheet>
+  )
+}
+
+function InvestDepositSheet({ me, available, ctx, onClose }) {
+  const token = useIdemToken()
+  const [amt, setAmt] = useState('')
+  const go = async () => {
+    if (!+amt) return
+    if (+amt > available) { ctx.toast(shortOfMoney(available, me.balance)); return }
+    const ok = await ctx.run(() => api.investDeposit(+amt, token), '투자 지갑에 넣었어요 🌱')
+    if (ok) onClose()
+  }
+  return (
+    <Sheet title="🌱 투자하기" sub={`쓸 수 있는 돈 ${won(available)}원 · 승인 없이 바로 들어가요`} onClose={onClose}>
+      <div className="field"><label>투자할 금액 (원)</label>
+        <input type="number" inputMode="numeric" value={amt} onChange={(e) => setAmt(e.target.value)} placeholder="예: 50000" /></div>
+      <div className="insight"><span className="q">💡</span>
+        <span>지금 넣은 돈은 다음 정산부터 이자가 붙기 시작해요</span></div>
+      <ActionButton className="btn pri" style={{ marginTop: 12 }} onClick={go}>투자하기</ActionButton>
+    </Sheet>
+  )
+}
+
+function InvestWithdrawSheet({ me, ctx, onClose }) {
+  const token = useIdemToken()
+  const total = (me.invest_principal || 0) + (me.invest_pending || 0)
+  const [amt, setAmt] = useState('')
+  const [memo, setMemo] = useState('')
+  const tooMuch = +amt > total
+  const go = async () => {
+    if (!+amt || !memo.trim()) { ctx.toast('금액과 어디에 쓸지를 모두 적어주세요'); return }
+    if (tooMuch) { ctx.toast(`투자 잔액이 부족해요 (지금 ${won(total)}원)`); return }
+    const ok = await ctx.run(() => api.createRequest(me.family_id, me.id,
+      { kind: 'invest_withdraw', amount: +amt, memo: memo.trim(), client_token: token }),
+      '인출 요청을 보냈어요! 부모님 확인을 기다려요 ⏳')
+    if (ok) onClose()
+  }
+  return (
+    <Sheet title="💵 투자금 인출하기" sub={`투자 지갑 ${won(total)}원 · 부모님이 확인하면 용돈 지갑으로 들어와요`} onClose={onClose}>
+      <div className="field"><label>인출할 금액 (원)</label>
+        <input type="number" inputMode="numeric" value={amt} onChange={(e) => setAmt(e.target.value)} placeholder="예: 15000" /></div>
+      <div className="field"><label>어디에 쓸 거예요?</label>
+        <input value={memo} onChange={(e) => setMemo(e.target.value)} placeholder="예: 입학할 때 멜 가방 사려고" /></div>
+      {tooMuch && <div className="calc" style={{ background: 'var(--danger-soft)', color: 'var(--danger)' }}>투자 잔액이 부족해요</div>}
+      <ActionButton className="btn pri" style={{ marginTop: 12 }} onClick={go}>부모님께 요청 💌</ActionButton>
     </Sheet>
   )
 }

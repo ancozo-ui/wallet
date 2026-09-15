@@ -148,6 +148,46 @@ export function Bars({ data }) {
   )
 }
 
+// 투자 지갑 성장 그래프. 진짜 그래프(시간 x축, 금액 y축)인데 이자 지급 지점마다
+// 잎이 돋게 꾸며서 화분처럼도 읽힌다 — 나중엔 잎 장식만 빼면 그냥 그래프로 남는다.
+// Donut/Bars 와 같은 컨벤션으로 손으로 그린 SVG(라이브러리 없음).
+export function InvestVine({ tx, onTapTick }) {
+  const sorted = [...tx].sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+  if (!sorted.length) {
+    return <div className="empty" style={{ padding: 26 }}>아직 투자를 시작하지 않았어요<br />🌱 투자하기로 첫 씨앗을 심어보세요</div>
+  }
+  let cum = 0
+  const pts = [{ i: 0, y: 0, t: null }]
+  sorted.forEach((t) => { cum += t.sign * t.amount; pts.push({ i: pts.length, y: cum, t }) })
+
+  const W = 300, H = 140, PAD = 16
+  const ys = pts.map((p) => p.y)
+  const maxY = Math.max(...ys, 1), minY = Math.min(...ys, 0)
+  const span = Math.max(maxY - minY, 1)
+  const lastI = pts.length - 1 || 1
+  const sx = (i) => PAD + (i / lastI) * (W - PAD * 2)
+  const sy = (y) => H - PAD - ((y - minY) / span) * (H - PAD * 2)
+  const line = pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${sx(i).toFixed(1)} ${sy(p.y).toFixed(1)}`).join(' ')
+  const area = `${line} L ${sx(lastI).toFixed(1)} ${H - PAD} L ${sx(0).toFixed(1)} ${H - PAD} Z`
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={H} className="vine">
+      <defs>
+        <linearGradient id="vineFill" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="var(--mint)" stopOpacity="0.28" />
+          <stop offset="100%" stopColor="var(--mint)" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <path d={area} fill="url(#vineFill)" stroke="none" />
+      <path d={line} fill="none" stroke="var(--mint)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+      {pts.map((p) => p.t?.kind === 'interest' && (
+        <text key={p.i} x={sx(p.i)} y={sy(p.y) - 6} textAnchor="middle" fontSize="15"
+          style={{ cursor: onTapTick ? 'pointer' : 'default' }} onClick={() => onTapTick?.(p.t)}>🌿</text>
+      ))}
+    </svg>
+  )
+}
+
 export function Toast({ msg }) {
   if (!msg) return null
   return <div className="toast">{msg}</div>
