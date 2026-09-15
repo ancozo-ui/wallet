@@ -61,6 +61,8 @@ export async function updateFamily(id, fields) {
   if (error) throw error
 }
 export const deleteTransaction = (id) => rpc('delete_transaction', { p_tx: id })
+// 이자 지급 내역 삭제 — transactions 에 줄이 없어 deleteTransaction 으론 못 지운다.
+export const deleteInvestInterest = (id) => rpc('delete_invest_interest', { p_invest_tx: id })
 
 // 부모 비밀번호 재확인 (민감 작업 전). 틀리면 throw.
 export async function verifyPassword(password) {

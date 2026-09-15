@@ -65,7 +65,8 @@ export default function Parent({ ctx }) {
             )}
             <Invest kid={kmap[focusKid]} tx={(data.investTx || []).filter((t) => t.member_id === focusKid)}
               ticks={data.investTicks || []} generalTx={data.tx.filter((t) => t.member_id === focusKid)}
-              onDelete={(t) => setSheet({ t: 'deltx', tx: t })} readOnly />
+              onDelete={(d) => setSheet(d.kind === 'interest' ? { t: 'delinterest', tx: d.tx } : { t: 'deltx', tx: d.tx })}
+              readOnly />
           </>
         )}
         {tab === 'stats' && (
@@ -104,6 +105,7 @@ export default function Parent({ ctx }) {
       {sheet?.t === 'preset' && <PresetQuestSheet kids={kids} quests={data.quests} A={A} onClose={() => setSheet(null)} />}
       {sheet?.t === 'questedit' && <QuestEditSheet q={sheet.quest} A={A} onClose={() => setSheet(null)} />}
       {sheet?.t === 'deltx' && <DeleteTxSheet tx={sheet.tx} A={A} onClose={() => setSheet(null)} />}
+      {sheet?.t === 'delinterest' && <DeleteInterestSheet tx={sheet.tx} A={A} onClose={() => setSheet(null)} />}
     </>
   )
 }
@@ -485,8 +487,10 @@ export function Invest({ kid, tx, ticks, generalTx = [], onDeposit, onWithdraw, 
         {sorted.map((t) => {
           const em = t.kind === 'interest' ? '📈' : t.kind === 'deposit' ? '🌱' : '💵'
           const title = t.kind === 'interest' ? '이자가 붙었어요' : t.kind === 'deposit' ? '투자하기' : `인출 · ${t.memo || ''}`
-          // 삭제는 investTx 가 아니라 그와 연결된 transactions 행을 지워야 한다(delete_transaction 이 그걸 봄).
+          // 입금/인출 삭제는 investTx 가 아니라 그와 연결된 transactions 행을 지워야 한다
+          // (delete_transaction 이 그걸 봄). 이자는 transactions 에 줄이 없어 별도 경로로 지운다.
           const linked = onDelete && t.kind !== 'interest' ? generalTx.find((g) => g.invest_tx_id === t.id) : null
+          const canDeleteInterest = onDelete && t.kind === 'interest'
           return (
             <div className="tx" key={t.id} onClick={() => t.kind === 'interest' && setOpenTick(t)}
               style={t.kind === 'interest' ? { cursor: 'pointer' } : null}>
@@ -494,7 +498,10 @@ export function Invest({ kid, tx, ticks, generalTx = [], onDeposit, onWithdraw, 
               <div><div className="tl">{title}</div>
                 <div className="td">{new Date(t.created_at).toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric' })}</div></div>
               <div className={'tv ' + (t.sign > 0 ? 'plus' : 'minus')} style={{ marginLeft: 'auto' }}>{t.sign > 0 ? '+' : '-'}{won(t.amount)}</div>
-              {linked && <button className="delbtn" onClick={(e) => { e.stopPropagation(); onDelete(linked) }} title="삭제">🗑</button>}
+              {canDeleteInterest && (
+                <button className="delbtn" onClick={(e) => { e.stopPropagation(); onDelete({ kind: 'interest', tx: t }) }} title="삭제">🗑</button>
+              )}
+              {linked && <button className="delbtn" onClick={(e) => { e.stopPropagation(); onDelete({ kind: 'tx', tx: linked }) }} title="삭제">🗑</button>}
             </div>
           )
         })}
@@ -756,6 +763,30 @@ function DeleteTxSheet({ tx, A, onClose }) {
       <div className="calc" style={{ background: 'var(--surface-2)', color: 'var(--ink)' }}>
         {tx.label} · {tx.sign > 0 ? '+' : '-'}{won(tx.amount)}원</div>
       <div className="msub" style={{ marginTop: 8 }}>{back}</div>
+      <div className="field" style={{ marginTop: 12 }}><label>부모 비밀번호 확인</label>
+        <input type="password" value={pw} onChange={(e) => setPw(e.target.value)} placeholder="비밀번호를 한 번 더 입력" /></div>
+      <button className="btn danger" disabled={busy} onClick={go}>{busy ? '확인 중…' : '삭제하기'}</button>
+    </Sheet>
+  )
+}
+
+// 이자 지급 내역 삭제 — transactions 에 줄이 없어 DeleteTxSheet 와는 다른 RPC(delete_invest_interest)를 쓴다.
+function DeleteInterestSheet({ tx, A, onClose }) {
+  const [pw, setPw] = useState('')
+  const [busy, setBusy] = useState(false)
+  const go = async () => {
+    if (!pw) return
+    setBusy(true)
+    try { await api.verifyPassword(pw) }
+    catch (e) { A.toast('⚠️ ' + (e.message || '비밀번호 오류')); setBusy(false); return }
+    const ok = await A.run(() => api.deleteInvestInterest(tx.id), '이자 내역을 삭제하고 투자 원금을 되돌렸어요')
+    setBusy(false)
+    if (ok) onClose()
+  }
+  return (
+    <Sheet title="🗑 이자 내역 삭제" sub="대시보드 정확성을 위한 관리 기능이에요" onClose={onClose}>
+      <div className="calc" style={{ background: 'var(--surface-2)', color: 'var(--ink)' }}>이자 · +{won(tx.amount)}원</div>
+      <div className="msub" style={{ marginTop: 8 }}>투자 원금에서 {won(tx.amount)}원이 다시 회수돼요</div>
       <div className="field" style={{ marginTop: 12 }}><label>부모 비밀번호 확인</label>
         <input type="password" value={pw} onChange={(e) => setPw(e.target.value)} placeholder="비밀번호를 한 번 더 입력" /></div>
       <button className="btn danger" disabled={busy} onClick={go}>{busy ? '확인 중…' : '삭제하기'}</button>
