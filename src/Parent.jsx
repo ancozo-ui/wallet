@@ -510,9 +510,11 @@ function GiveSheet({ kids, A, onClose }) {
   const [kid, setKid] = useState(kids[0]?.id || '')
   const [amt, setAmt] = useState('')
   const [memo, setMemo] = useState('')
+  const [toInvest, setToInvest] = useState(false)
   const go = async () => {
     if (!+amt) return
-    const ok = await A.run(() => api.give(kid, +amt, memo, A.actor, token), `${A.actor}가 용돈을 지급했어요 🎁`)
+    const ok = await A.run(() => api.give(kid, +amt, memo, A.actor, token, toInvest),
+      toInvest ? `${A.actor}가 투자 지갑으로 바로 넣었어요 🌱` : `${A.actor}가 용돈을 지급했어요 🎁`)
     if (ok) onClose()
   }
   return (
@@ -522,8 +524,16 @@ function GiveSheet({ kids, A, onClose }) {
           {kids.map((k) => <option key={k.id} value={k.id}>{k.emoji} {k.name} ({won(k.balance)}원)</option>)}
         </select></div>
       <div className="field"><label>금액 (원)</label><input type="number" inputMode="numeric" value={amt} onChange={(e) => setAmt(e.target.value)} placeholder="예: 3000" /></div>
-      <div className="field"><label>메모</label><input value={memo} onChange={(e) => setMemo(e.target.value)} placeholder="예: 이번 주 용돈" /></div>
-      <ActionButton className="btn pri" onClick={go}>용돈 주기</ActionButton>
+      <div className="field"><label>메모</label><input value={memo} onChange={(e) => setMemo(e.target.value)} placeholder="예: 할머니가 주신 용돈" /></div>
+      <button type="button" className="sblock" onClick={() => setToInvest((v) => !v)}
+        style={toInvest ? { borderColor: 'var(--mint)', background: 'var(--mint-soft)' } : null}>
+        <span className="em">🌱</span>
+        <div><div className="t">바로 투자 지갑으로</div>
+          <div className="d">목돈 선물 같은 건 용돈 지갑을 거치지 않고 바로 투자로 넣을 수 있어요</div></div>
+        <span className="rt" style={{ color: toInvest ? 'var(--mint-ink)' : 'var(--faint)' }}>{toInvest ? 'ON' : 'OFF'}</span>
+      </button>
+      <ActionButton className="btn pri" style={{ marginTop: 12 }} onClick={go}>
+        {toInvest ? '투자 지갑으로 넣기' : '용돈 주기'}</ActionButton>
     </Sheet>
   )
 }

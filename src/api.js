@@ -72,8 +72,8 @@ export async function verifyPassword(password) {
 
 // ---- 부모 행위 ----
 // token 은 화면에서 만든 고유 표식(useIdemToken). 재시도해도 서버가 한 번만 처리한다.
-export const give = (member, amount, memo, actor, token) =>
-  rpc('give_allowance', { p_member: member, p_amount: amount, p_memo: memo, p_actor: actor, p_token: token || tok() })
+export const give = (member, amount, memo, actor, token, toInvest) =>
+  rpc('give_allowance', { p_member: member, p_amount: amount, p_memo: memo, p_actor: actor, p_token: token || tok(), p_to_invest: !!toInvest })
 export const confirmQuest = (q, bonus, actor) =>
   rpc('confirm_quest', { p_quest: q, p_bonus: bonus, p_actor: actor, p_token: tok() })
 export const rejectQuest = (q) => rpc('reject_quest', { p_quest: q })
