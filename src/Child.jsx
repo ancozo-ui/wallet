@@ -125,10 +125,11 @@ export default function Child({ ctx }) {
 }
 
 function Home({ me, tx, fines, activeQuests, onAck, onGoQuests, onSpend, onSend, toast, signOut }) {
-  // 여기 "모은 돈/쓴 돈"은 용돈(소비성) 기준이다 — 투자 입출금은 "투자" 탭의
-  // 투자 활동에서 따로 보여주므로 여기 집계에서는 뺀다(섞으면 어느 쪽인지 헷갈림).
-  const inc = tx.filter((t) => t.sign > 0 && t.grp !== 'invest').reduce((a, t) => a + t.amount, 0)
-  const out = tx.filter((t) => t.sign < 0 && t.grp !== 'invest').reduce((a, t) => a + t.amount, 0)
+  // 여기 "모은 돈/쓴 돈"은 용돈(소비성) 기준이다 — 투자 입출금(grp='invest')은 물론,
+  // "바로 투자로" 줄 때 같이 생기는 "용돈 지급" 기록(related_id 로 투자와 짝지어짐)도
+  // 실제로는 한 번도 쓸 수 있는 돈이 된 적이 없으므로 함께 뺀다.
+  const inc = tx.filter((t) => t.sign > 0 && t.grp !== 'invest' && !t.related_id).reduce((a, t) => a + t.amount, 0)
+  const out = tx.filter((t) => t.sign < 0 && t.grp !== 'invest' && !t.related_id).reduce((a, t) => a + t.amount, 0)
   const owing = me.balance < 0
   const hasNews = fines.length > 0 || activeQuests.length > 0
   return (

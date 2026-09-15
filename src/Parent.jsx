@@ -349,7 +349,9 @@ export function Stats({ kid, tx, investTx = [], allowanceDay = 6, onDelete }) {
   const from = period === 'month' ? weekStart.getTime() - 21 * 86400 * 1000 : weekStart.getTime()
   // 투자 입출금(grp='invest')은 수입/지출이 아니라 "돈을 옮긴 것"이라 여기 집계에서 뺀다 —
   // 안 빼면 투자하기가 '쓴 돈'으로, 인출이 '번 돈'으로 잡혀 숫자가 왜곡된다.
-  const ftx = tx.filter((t) => new Date(t.created_at).getTime() >= from && t.grp !== 'invest')
+  // "바로 투자로" 줄 때 같이 생기는 "용돈 지급" 기록(related_id 로 투자와 짝지어짐)도
+  // 실제로는 한 번도 쓸 수 있는 돈이 된 적이 없으므로 함께 뺀다.
+  const ftx = tx.filter((t) => new Date(t.created_at).getTime() >= from && t.grp !== 'invest' && !t.related_id)
   const inWin = ftx.length
   const caption = period === 'week'
     ? `${weekStart.getMonth() + 1}월 ${weekStart.getDate()}일(${WEEKDAYS[allowanceDay]}) 지급일부터`
