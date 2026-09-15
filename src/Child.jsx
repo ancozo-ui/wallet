@@ -125,8 +125,10 @@ export default function Child({ ctx }) {
 }
 
 function Home({ me, tx, fines, activeQuests, onAck, onGoQuests, onSpend, onSend, toast, signOut }) {
-  const inc = tx.filter((t) => t.sign > 0).reduce((a, t) => a + t.amount, 0)
-  const out = tx.filter((t) => t.sign < 0).reduce((a, t) => a + t.amount, 0)
+  // 여기 "모은 돈/쓴 돈"은 용돈(소비성) 기준이다 — 투자 입출금은 "투자" 탭의
+  // 투자 활동에서 따로 보여주므로 여기 집계에서는 뺀다(섞으면 어느 쪽인지 헷갈림).
+  const inc = tx.filter((t) => t.sign > 0 && t.grp !== 'invest').reduce((a, t) => a + t.amount, 0)
+  const out = tx.filter((t) => t.sign < 0 && t.grp !== 'invest').reduce((a, t) => a + t.amount, 0)
   const owing = me.balance < 0
   const hasNews = fines.length > 0 || activeQuests.length > 0
   return (
@@ -426,7 +428,7 @@ function InvestWithdrawSheet({ me, ctx, onClose }) {
       <div className="field"><label>인출할 금액 (원)</label>
         <input type="number" inputMode="numeric" value={amt} onChange={(e) => setAmt(e.target.value)} placeholder="예: 15000" /></div>
       <div className="field"><label>어디에 쓸 거예요?</label>
-        <input value={memo} onChange={(e) => setMemo(e.target.value)} placeholder="예: 입학할 때 멜 가방 사려고" /></div>
+        <input value={memo} onChange={(e) => setMemo(e.target.value)} placeholder="예: 갖고 싶었던 자전거를 사고 싶어요" /></div>
       {tooMuch && <div className="calc" style={{ background: 'var(--danger-soft)', color: 'var(--danger)' }}>투자 잔액이 부족해요</div>}
       <ActionButton className="btn pri" style={{ marginTop: 12 }} onClick={go}>부모님께 요청 💌</ActionButton>
     </Sheet>

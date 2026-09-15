@@ -364,8 +364,8 @@ export function Stats({ kid, tx, investTx = [], allowanceDay = 6, onDelete }) {
   const investDeposited = investPeriod.filter((t) => t.kind === 'deposit').reduce((a, t) => a + t.amount, 0)
   const investWithdrawn = investPeriod.filter((t) => t.kind === 'withdraw').reduce((a, t) => a + t.amount, 0)
   const investData = [
-    { label: '넣은 돈', emoji: '🌱', color: 'var(--mint)', value: investDeposited },
-    { label: '뺀 돈', emoji: '💵', color: 'var(--spend)', value: investWithdrawn },
+    { label: '투자금', emoji: '🌱', color: 'var(--mint)', value: investDeposited },
+    { label: '인출금', emoji: '💵', color: 'var(--spend)', value: investWithdrawn },
     { label: '이자로 번 돈', emoji: '📈', color: 'var(--coin)', value: investEarned },
   ].filter((d) => d.value > 0)
 
