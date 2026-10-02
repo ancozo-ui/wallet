@@ -36,11 +36,11 @@ Deno.serve(async (req) => {
     const forceStart = url.searchParams.get("window_start");
     const forceEnd = url.searchParams.get("window_end");
 
-    await fetchAndStoreLatest(admin, cfg);
+    const fetchResult = await fetchAndStoreLatest(admin, cfg);
 
     if (forceStart && forceEnd) {
       const result = await evaluateWindow(admin, cfg, forceStart, forceEnd);
-      return json({ forced: true, ...result });
+      return json({ forced: true, fetch: fetchResult, ...result });
     }
 
     const { data: lastTick } = await admin
@@ -52,17 +52,17 @@ Deno.serve(async (req) => {
     } else {
       const { data: first } = await admin
         .from("market_snapshots").select("date").order("date", { ascending: true }).limit(1).maybeSingle();
-      if (!first) return json({ tick: false, reason: "no snapshots yet" });
+      if (!first) return json({ tick: false, reason: "no snapshots yet", fetch: fetchResult });
       windowStart = first.date;
     }
     const windowEnd = addDays(windowStart, WINDOW_DAYS - 1);
     const today = new Date().toISOString().slice(0, 10);
     if (today < windowEnd) {
-      return json({ tick: false, reason: "window not closed yet", windowStart, windowEnd, today });
+      return json({ tick: false, reason: "window not closed yet", windowStart, windowEnd, today, fetch: fetchResult });
     }
 
     const result = await evaluateWindow(admin, cfg, windowStart, windowEnd);
-    return json({ tick: true, ...result });
+    return json({ tick: true, fetch: fetchResult, ...result });
   } catch (e) {
     console.error(e);
     return json({ error: String(e) }, 200); // pg_net 은 재시도하지 않는다. 시끄럽게 실패할 이유가 없다.
@@ -108,32 +108,33 @@ function computeRate(rows: { date: string; value: number }[], cfg: any) {
   return { changePct: round2(changePct), ratePct: round2(ratePct) };
 }
 
+// 실제 브라우저처럼 보이는 User-Agent 가 없으면 Yahoo/Stooq 양쪽 다
+// 서버·클라우드발 요청을 더 쉽게 막는다(둘 다 비공식 엔드포인트라서).
+const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+
+// 진단용: 실제로 저장됐는지, 안 됐다면 왜 둘 다 실패했는지를 응답에 그대로 남긴다.
+// (Stooq 가 2026-10 경 JS 챌린지로 완전히 막혀서, 왜 며칠씩 데이터가 안 쌓였는지
+//  로그 없이는 알 수가 없었다 — 이제 curl 로 바로 확인 가능하게 함.)
 async function fetchAndStoreLatest(admin: ReturnType<typeof createClient>, cfg: any) {
-  const latest = await fetchStooqLatest(cfg.stooq_symbol).catch(() => null)
-    ?? await fetchYahooLatest(cfg.yahoo_symbol).catch(() => null);
-  if (!latest) return; // 둘 다 실패해도 조용히 넘어간다 — 다음날 다시 시도
+  const errors: string[] = [];
+  let latest: { date: string; value: number; source: string } | null = null;
+  try { latest = await fetchYahooLatest(cfg.yahoo_symbol); }
+  catch (e) { errors.push(`yahoo: ${e}`); }
+  if (!latest) {
+    try { latest = await fetchStooqLatest(cfg.stooq_symbol); }
+    catch (e) { errors.push(`stooq: ${e}`); }
+  }
+  if (!latest) return { stored: false, errors };
   await admin.from("market_snapshots")
     .upsert({ date: latest.date, value: latest.value, source: latest.source, fetched_at: new Date().toISOString() },
       { onConflict: "date" });
+  return { stored: true, ...latest };
 }
 
-// Stooq: 무료, 키 불필요, CSV. 최근 며칠치를 받아 마지막(가장 최근 거래일) 행만 쓴다.
-async function fetchStooqLatest(symbol: string): Promise<{ date: string; value: number; source: string }> {
-  const res = await fetch(`https://stooq.com/q/d/l/?s=${encodeURIComponent(symbol)}&i=d`);
-  if (!res.ok) throw new Error(`stooq ${res.status}`);
-  const csv = (await res.text()).trim();
-  const lines = csv.split("\n").filter((l) => l && !l.startsWith("Date"));
-  const last = lines.at(-1);
-  if (!last) throw new Error("stooq empty");
-  const [date, , , , close] = last.split(",");
-  const value = Number(close);
-  if (!date || !Number.isFinite(value)) throw new Error("stooq parse failed");
-  return { date, value, source: "stooq" };
-}
-
-// Yahoo Finance 비공식 차트 API. Stooq 가 막히거나 느릴 때 보조용.
+// Yahoo Finance 비공식 차트 API. 지금은 이게 주력(Stooq 가 봇 차단으로 막힘).
 async function fetchYahooLatest(symbol: string): Promise<{ date: string; value: number; source: string }> {
-  const res = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=5d&interval=1d`);
+  const res = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=5d&interval=1d`,
+    { headers: { "User-Agent": UA, "Accept": "application/json" } });
   if (!res.ok) throw new Error(`yahoo ${res.status}`);
   const j = await res.json();
   const result = j?.chart?.result?.[0];
@@ -145,6 +146,21 @@ async function fetchYahooLatest(symbol: string): Promise<{ date: string; value: 
     }
   }
   throw new Error("yahoo parse failed");
+}
+
+// Stooq: 무료, 키 불필요, CSV. 2026-10 경부터 사람 확인용 JS 챌린지를 걸기 시작해
+// 서버에서는 거의 항상 실패한다 — 그래도 혹시 풀릴 때를 대비해 보조로 남겨둔다.
+async function fetchStooqLatest(symbol: string): Promise<{ date: string; value: number; source: string }> {
+  const res = await fetch(`https://stooq.com/q/d/l/?s=${encodeURIComponent(symbol)}&i=d`, { headers: { "User-Agent": UA } });
+  if (!res.ok) throw new Error(`stooq ${res.status}`);
+  const csv = (await res.text()).trim();
+  const lines = csv.split("\n").filter((l) => l && !l.startsWith("Date"));
+  const last = lines.at(-1);
+  if (!last) throw new Error("stooq empty");
+  const [date, , , , close] = last.split(",");
+  const value = Number(close);
+  if (!date || !Number.isFinite(value)) throw new Error("stooq parse failed");
+  return { date, value, source: "stooq" };
 }
 
 function addDays(dateStr: string, days: number): string {
