@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { won } from './const'
+import { won, fmtWhen } from './const'
 import { pushPermission, enablePush, disablePush, isSubscribed } from './push'
 
 export function Sheet({ title, sub, children, onClose }) {
@@ -231,6 +231,18 @@ export function InvestTree({ total, tx, onTapTick }) {
         ))}
       </div>
     </div>
+  )
+}
+
+// 내역 한 줄의 "언제 · 누가". 부모가 승인한 거래(by_actor 가 '엄마 승인' 같은 형태)는
+// 눈에 띄게 ✅ 로 표시해서, 아이도 부모도 "몇 시에 누가 허락했는지" 바로 보이게 한다.
+export function TxMeta({ at, actor }) {
+  const approved = /승인$/.test(actor || '')
+  return (
+    <>
+      {fmtWhen(at)}
+      {actor ? <> · <span className={'byline' + (approved ? ' ok' : '')}>{approved ? '✅ ' : ''}{actor}</span></> : null}
+    </>
   )
 }
 

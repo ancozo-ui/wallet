@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { QCAT, PRESET_QUESTS, catInfo, won, stars, WEEKDAYS, allowanceWeekStart, txIcon, investBand } from './const'
-import { Sheet, Donut, Bars, InvestVine, InvestTree, ActionButton, useIdemToken, PushToggle } from './ui'
+import { Sheet, Donut, Bars, InvestVine, InvestTree, ActionButton, useIdemToken, PushToggle, TxMeta } from './ui'
 import * as api from './api'
 
 export default function Parent({ ctx }) {
@@ -439,7 +439,7 @@ export function Stats({ kid, tx, investTx = [], allowanceDay = 6, onDelete }) {
                 <div className="tx" key={t.id}>
                   <div className={'ti ' + cl}>{ic}</div>
                   <div style={{ minWidth: 0 }}><div className="tl">{t.label}</div>
-                    <div className="td">{new Date(t.created_at).toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric' })}{t.by_actor ? ` · ${t.by_actor}` : ''}</div></div>
+                    <div className="td"><TxMeta at={t.created_at} actor={t.by_actor} /></div></div>
                   <div className={'tv ' + (t.sign > 0 ? 'plus' : 'minus')} style={{ marginLeft: 'auto' }}>{t.sign > 0 ? '+' : '-'}{won(t.amount)}</div>
                   <button className="delbtn" onClick={() => onDelete(t)} title="삭제">🗑</button>
                 </div>
@@ -496,7 +496,7 @@ export function Invest({ kid, tx, ticks, generalTx = [], onDeposit, onWithdraw, 
               style={t.kind === 'interest' ? { cursor: 'pointer' } : null}>
               <div className="ti ic-invest">{em}</div>
               <div><div className="tl">{title}</div>
-                <div className="td">{new Date(t.created_at).toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric' })}</div></div>
+                <div className="td"><TxMeta at={t.created_at} actor={t.kind === 'interest' ? null : t.by_actor} /></div></div>
               <div className={'tv ' + (t.sign > 0 ? 'plus' : 'minus')} style={{ marginLeft: 'auto' }}>{t.sign > 0 ? '+' : '-'}{won(t.amount)}</div>
               {canDeleteInterest && (
                 <button className="delbtn" onClick={(e) => { e.stopPropagation(); onDelete({ kind: 'interest', tx: t }) }} title="삭제">🗑</button>
