@@ -439,7 +439,7 @@ export function Stats({ kid, tx, investTx = [], allowanceDay = 6, onDelete }) {
                 <div className="tx" key={t.id}>
                   <div className={'ti ' + cl}>{ic}</div>
                   <div style={{ minWidth: 0 }}><div className="tl">{t.label}</div>
-                    <div className="td"><TxMeta at={t.created_at} actor={t.by_actor} /></div></div>
+                    <div className="td"><TxMeta at={t.created_at} actor={t.by_actor} requestedAt={t.requested_at} /></div></div>
                   <div className={'tv ' + (t.sign > 0 ? 'plus' : 'minus')} style={{ marginLeft: 'auto' }}>{t.sign > 0 ? '+' : '-'}{won(t.amount)}</div>
                   <button className="delbtn" onClick={() => onDelete(t)} title="삭제">🗑</button>
                 </div>
@@ -496,7 +496,7 @@ export function Invest({ kid, tx, ticks, generalTx = [], onDeposit, onWithdraw, 
               style={t.kind === 'interest' ? { cursor: 'pointer' } : null}>
               <div className="ti ic-invest">{em}</div>
               <div><div className="tl">{title}</div>
-                <div className="td"><TxMeta at={t.created_at} actor={t.kind === 'interest' ? null : t.by_actor} /></div></div>
+                <div className="td"><TxMeta at={t.created_at} actor={t.kind === 'interest' ? null : t.by_actor} requestedAt={t.requested_at} /></div></div>
               <div className={'tv ' + (t.sign > 0 ? 'plus' : 'minus')} style={{ marginLeft: 'auto' }}>{t.sign > 0 ? '+' : '-'}{won(t.amount)}</div>
               {canDeleteInterest && (
                 <button className="delbtn" onClick={(e) => { e.stopPropagation(); onDelete({ kind: 'interest', tx: t }) }} title="삭제">🗑</button>

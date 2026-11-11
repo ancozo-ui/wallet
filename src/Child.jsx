@@ -180,7 +180,7 @@ function Home({ me, tx, fines, activeQuests, onAck, onGoQuests, onSpend, onSend,
           return (
             <div className="tx" key={t.id}>
               <div className={'ti ' + cl}>{ic}</div>
-              <div><div className="tl">{t.label}</div><div className="td"><TxMeta at={t.created_at} actor={t.by_actor} /></div></div>
+              <div><div className="tl">{t.label}</div><div className="td"><TxMeta at={t.created_at} actor={t.by_actor} requestedAt={t.requested_at} /></div></div>
               <div className={'tv ' + (t.sign > 0 ? 'plus' : 'minus')}>{t.sign > 0 ? '+' : '-'}{won(t.amount)}</div>
             </div>
           )

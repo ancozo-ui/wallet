@@ -80,7 +80,7 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
 .actor-seg{display:flex;gap:3px;background:var(--surface-2);border-radius:11px;padding:3px}
 .actor-seg button{padding:7px 12px;border-radius:8px;font-size:13px;font-weight:700;color:var(--muted);transition:.12s}
 .actor-seg button.on{background:var(--mint);color:#fff;box-shadow:var(--shadow-sm)}
-.byline{color:var(--faint)}
+.byline{color:var(--faint);white-space:nowrap}
 .byline.ok{color:var(--mint-ink);font-weight:700}
 .body{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:4px 15px 16px}
 

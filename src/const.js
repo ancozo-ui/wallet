@@ -43,6 +43,9 @@ export const won = n => (n ?? 0).toLocaleString('ko-KR')
 // "11. 7. 오후 3:42" — 내역의 날짜+시각. 기기 시간대와 상관없이 한국 시간으로 고정한다.
 export const fmtWhen = (iso) => new Date(iso).toLocaleString('ko-KR',
   { timeZone: 'Asia/Seoul', month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })
+export const fmtDay = (iso) => new Date(iso).toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' })
+export const fmtClock = (iso) => new Date(iso).toLocaleTimeString('ko-KR',
+  { timeZone: 'Asia/Seoul', hour: 'numeric', minute: '2-digit', hour12: true })
 export const catInfo = c => CATS[c] || { e:'💸', n:c || '지출' }
 export const stars = n => '★★★'.slice(0, n) + '☆☆☆'.slice(0, 3 - n)
 
