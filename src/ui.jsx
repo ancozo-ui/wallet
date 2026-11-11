@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { won, fmtWhen } from './const'
+import { won, fmtWhen, fmtDay, fmtClock } from './const'
 import { pushPermission, enablePush, disablePush, isSubscribed } from './push'
 
 export function Sheet({ title, sub, children, onClose }) {
@@ -236,12 +236,15 @@ export function InvestTree({ total, tx, onTapTick }) {
 
 // 내역 한 줄의 "언제 · 누가". 부모가 승인한 거래(by_actor 가 '엄마 승인' 같은 형태)는
 // 눈에 띄게 ✅ 로 표시해서, 아이도 부모도 "몇 시에 누가 허락했는지" 바로 보이게 한다.
-export function TxMeta({ at, actor }) {
+export function TxMeta({ at, actor, requestedAt }) {
   const approved = /승인$/.test(actor || '')
+  // 요청 시각이 있으면 그것이 주 시각, 승인 시각은 승인자 옆에 보조로 (같은 날이면 시각만).
+  const showReq = !!requestedAt
+  const sameDay = showReq && fmtDay(requestedAt) === fmtDay(at)
   return (
     <>
-      {fmtWhen(at)}
-      {actor ? <> · <span className={'byline' + (approved ? ' ok' : '')}>{approved ? '✅ ' : ''}{actor}</span></> : null}
+      {showReq ? <>요청 {fmtWhen(requestedAt)}</> : fmtWhen(at)}
+      {actor ? <> · <span className={'byline' + (approved ? ' ok' : '')}>{approved ? '✅ ' : ''}{actor}{showReq ? ' ' + (sameDay ? fmtClock(at) : fmtWhen(at)) : ''}</span></> : null}
     </>
   )
 }
