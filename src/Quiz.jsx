@@ -76,9 +76,9 @@ function Round({ cfg, ctx, onClose, onAgain }) {
       ctx.reload().catch(() => {})
       return
     }
+    await saveNotes()   // 보상 저장이 실패해도 틀린 문제는 노트에 남긴다
     try {
       const reward = await api.quizFinish(cfg.subject, finalCorrect, cfg.question_count, secs, token)
-      await saveNotes()
       setResult({ reward: reward || 0, secs, correct: finalCorrect })
       ctx.reload().catch(() => {})
     } catch (e) {
