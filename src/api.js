@@ -20,7 +20,7 @@ export const createFamily = (name, parentName) =>
 // ---- 데이터 로드 ----
 export async function loadParent() {
   await expireQuests()
-  const [family, kids, tx, quests, requests, investTx, investTicks, quizCfg, quizAttempts] = await Promise.all([
+  const [family, kids, tx, quests, requests, investTx, investTicks, quizCfg, quizAttempts, quizNotes] = await Promise.all([
     supabase.from('families').select('*').limit(1).maybeSingle(),
     supabase.from('members').select('*').eq('role', 'child').order('sort').order('created_at'),
     supabase.from('transactions').select('*').order('created_at', { ascending: false }),
@@ -30,17 +30,18 @@ export async function loadParent() {
     supabase.from('invest_ticks').select('*').order('window_start', { ascending: false }),
     supabase.from('quiz_config').select('*'),
     supabase.from('quiz_attempts').select('*').order('created_at', { ascending: false }).limit(60),
+    supabase.from('quiz_notes').select('*').order('last_wrong_at', { ascending: false }),
   ])
-  for (const r of [family, kids, tx, quests, requests, investTx, investTicks, quizCfg, quizAttempts]) if (r.error) throw r.error
+  for (const r of [family, kids, tx, quests, requests, investTx, investTicks, quizCfg, quizAttempts, quizNotes]) if (r.error) throw r.error
   return {
     family: family.data, kids: kids.data, tx: tx.data, quests: quests.data, requests: requests.data,
     investTx: investTx.data, investTicks: investTicks.data,
-    quizCfg: quizCfg.data, quizAttempts: quizAttempts.data,
+    quizCfg: quizCfg.data, quizAttempts: quizAttempts.data, quizNotes: quizNotes.data,
   }
 }
 export async function loadChild(memberId) {
   await expireQuests()
-  const [family, me, tx, quests, fines, mypend, sibs, investTx, investTicks, quizCfg, quizAttempts] = await Promise.all([
+  const [family, me, tx, quests, fines, mypend, sibs, investTx, investTicks, quizCfg, quizAttempts, quizNotes] = await Promise.all([
     supabase.from('families').select('*').limit(1).maybeSingle(),
     supabase.from('members').select('*').eq('id', memberId).single(),
     supabase.from('transactions').select('*').eq('member_id', memberId).order('created_at', { ascending: false }),
@@ -53,13 +54,14 @@ export async function loadChild(memberId) {
     supabase.from('invest_ticks').select('*').order('window_start', { ascending: false }),
     supabase.from('quiz_config').select('*').eq('member_id', memberId),
     supabase.from('quiz_attempts').select('*').eq('member_id', memberId).order('created_at', { ascending: false }).limit(30),
+    supabase.from('quiz_notes').select('*').eq('member_id', memberId).order('last_wrong_at', { ascending: false }),
   ])
-  for (const r of [family, me, tx, quests, fines, mypend, sibs, investTx, investTicks, quizCfg, quizAttempts]) if (r.error) throw r.error
+  for (const r of [family, me, tx, quests, fines, mypend, sibs, investTx, investTicks, quizCfg, quizAttempts, quizNotes]) if (r.error) throw r.error
   return {
     family: family.data, me: me.data, tx: tx.data, quests: quests.data, fines: fines.data,
     myPending: mypend.data || [], siblings: sibs.data || [],
     investTx: investTx.data, investTicks: investTicks.data,
-    quizCfg: quizCfg.data, quizAttempts: quizAttempts.data,
+    quizCfg: quizCfg.data, quizAttempts: quizAttempts.data, quizNotes: quizNotes.data,
   }
 }
 export async function updateFamily(id, fields) {
@@ -143,6 +145,7 @@ export const ackFine = (id) => rpc('acknowledge_fine', { p_request: id, p_token:
 // 투자하기 — 승인 필요 없이 즉시 반영(자기 돈을 투자하는 걸 막을 이유는 없음)
 export const investDeposit = (amount, token) => rpc('invest_deposit', { p_amount: amount, p_token: token || tok() })
 // 🎲 놀이 퀴즈 — 끝난 판의 점수를 알리면 서버가 구간표대로 보상을 계산해 바로 지급하고 보상액을 돌려준다.
+export const quizNoteSave = (items) => rpc('quiz_note_save', { p_items: items })
 export const quizFinish = (subject, correct, total, seconds, token) =>
   rpc('quiz_finish', { p_subject: subject, p_correct: correct, p_total: total, p_seconds: seconds, p_token: token || tok() })
 export async function updateQuizConfig(memberId, subject, fields) {

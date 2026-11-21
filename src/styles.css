@@ -356,3 +356,14 @@ select{-webkit-appearance:none;appearance:none}
 .play-card .d{font-size:11.5px;color:var(--muted);margin-top:2px}
 .play-card .go{margin-left:auto;background:var(--coin);color:#3b2a06;font-weight:800;font-size:13px;padding:8px 12px;border-radius:99px;flex-shrink:0}
 .q-play{background:var(--coin-soft)}
+.quiz-wrongs{width:100%;max-width:330px;text-align:left;background:var(--surface);border-radius:var(--r-sm);padding:10px 12px;margin:10px 0;box-shadow:var(--shadow-sm);max-height:240px;overflow-y:auto}
+.quiz-wt{font-weight:800;font-size:13px;margin-bottom:6px}
+.quiz-w{padding:7px 0;border-top:1px solid var(--line);font-size:13.5px}
+.quiz-w:first-of-type{border-top:none}
+.quiz-w .qs{color:var(--muted);font-size:12px}
+.quiz-w .qa{display:flex;gap:10px;margin-top:2px;font-size:12.5px;font-weight:700}
+.quiz-w .no{color:var(--danger)} .quiz-w .ok{color:var(--good)}
+.note-row{padding:9px 0;border-top:1px solid var(--line);font-size:13.5px}
+.note-row:first-of-type{border-top:none}
+.note-row .q{font-weight:700}
+.note-row .m{font-size:11.5px;color:var(--muted);margin-top:2px}

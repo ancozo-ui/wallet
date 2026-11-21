@@ -100,7 +100,8 @@ export default function Child({ ctx }) {
           onTime={(k) => (blocked ? guide() : setSheet({ t: 'time', kind: k }))}
           onBuy={(c) => (blocked ? guide() : setSheet({ t: 'buy', cat: c }))} />}
         {tab === 'quests' && <Quests quests={data.quests} run={run}
-          quizCfg={data.quizCfg || []} attempts={data.quizAttempts || []} onPlay={(c) => setSheet({ t: 'quiz', cfg: c })}
+          quizCfg={data.quizCfg || []} attempts={data.quizAttempts || []} notes={data.quizNotes || []}
+          onPlay={(c) => setSheet({ t: 'quiz', cfg: c })} onNotes={() => setSheet({ t: 'notebook' })}
           onSubmit={(q) => setSheet({ t: 'submit', q })} onCancel={(q) => setSheet({ t: 'cancel', q })}
           onPropose={() => setSheet({ t: 'propose' })} />}
         {tab === 'invest' && <Invest kid={me} tx={data.investTx || []} ticks={data.investTicks || []}
@@ -118,6 +119,8 @@ export default function Child({ ctx }) {
       {sheet?.t === 'send' && <SendSheet me={me} available={available} siblings={data.siblings} ctx={ctx} onClose={() => setSheet(null)} />}
       {sheet?.t === 'time' && <TimeSheet me={me} available={available} kind={sheet.kind} ctx={ctx} onClose={() => setSheet(null)} />}
       {sheet?.t === 'buy' && <BuySheet me={me} available={available} cat={sheet.cat} ctx={ctx} onClose={() => setSheet(null)} />}
+      {sheet?.t === 'notebook' && <NotebookSheet notes={data.quizNotes || []} onClose={() => setSheet(null)}
+        onPractice={(cfg) => setSheet({ t: 'quiz', cfg })} />}
       {sheet?.t === 'quiz' && <Quiz cfg={sheet.cfg} ctx={ctx} onClose={() => setSheet(null)} />}
       {sheet?.t === 'cancel' && <CancelSheet q={sheet.q} ctx={ctx} onClose={() => setSheet(null)} />}
       {sheet?.t === 'submit' && <SubmitSheet q={sheet.q} ctx={ctx} onClose={() => setSheet(null)} />}
@@ -231,7 +234,7 @@ function Spend({ me, available, reserved, blocked, onGoQuests, onTime, onBuy }) 
   )
 }
 
-function Quests({ quests, run, quizCfg, attempts, onPlay, onSubmit, onCancel, onPropose }) {
+function Quests({ quests, run, quizCfg, attempts, notes, onPlay, onNotes, onSubmit, onCancel, onPropose }) {
   const [openCat, setOpenCat] = useState(null)
   // 지금 하는 중인 건 항상 펼쳐 두고, 나머지는 카테고리로 접어 스크롤을 줄인다.
   const active = quests.filter((q) => q.status === 'prog' || q.status === 'done_sub')
@@ -248,7 +251,7 @@ function Quests({ quests, run, quizCfg, attempts, onPlay, onSubmit, onCancel, on
         <button className="btn coin sm" onClick={onPropose}>✋ 제안하기</button>
       </div>
 
-      <PlayCards quizCfg={quizCfg} attempts={attempts} onPlay={onPlay} />
+      <PlayCards quizCfg={quizCfg} attempts={attempts} notes={notes} onPlay={onPlay} onNotes={onNotes} />
 
       {active.length > 0 && <div className="sec-t">🔥 지금 하는 중 <span className="cnt">{active.length}</span></div>}
       {active.map((q) => (
@@ -282,7 +285,7 @@ function Quests({ quests, run, quizCfg, attempts, onPlay, onSubmit, onCancel, on
 }
 
 // 🎲 놀이 — 끝까지 풀면 점수에 따라 용돈이 바로 나오는 퀴즈
-function PlayCards({ quizCfg, attempts, onPlay }) {
+function PlayCards({ quizCfg, attempts, notes, onPlay, onNotes }) {
   const list = SUBJECT_ORDER.map((sj) => quizCfg.find((c) => c.subject === sj && c.enabled)).filter(Boolean)
   if (!list.length) return null
   const today = new Date().toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' })
@@ -304,7 +307,42 @@ function PlayCards({ quizCfg, attempts, onPlay }) {
           </button>
         )
       })}
+      {notes.length > 0 && (
+        <button className="play-card" onClick={onNotes}>
+          <span className="em">📒</span>
+          <div>
+            <div className="t">오답노트</div>
+            <div className="d">아직 못 외운 문제 {notes.filter((n) => !n.mastered).length}개{notes.some((n) => n.mastered) ? ` · 다 외운 문제 ${notes.filter((n) => n.mastered).length}개 🎓` : ''}</div>
+          </div>
+          <span className="go" style={{ background: 'var(--spend-soft)', color: 'var(--spend)' }}>보기</span>
+        </button>
+      )}
     </>
+  )
+}
+
+// 📒 오답노트 — 틀린 문제 목록과 '오답만 다시 풀기'(용돈 없음, 2번 연속 맞히면 졸업)
+function NotebookSheet({ notes, onPractice, onClose }) {
+  const open = notes.filter((n) => !n.mastered)
+  const done = notes.filter((n) => n.mastered)
+  const start = () => {
+    const picked = open.slice().sort(() => Math.random() - 0.5).slice(0, 15)
+    onPractice({ subject: 'practice', practice: true, question_count: picked.length, tiers: [],
+      questions: picked.map((n) => ({ ...n.payload, _sj: n.subject })) })
+  }
+  return (
+    <Sheet title="📒 오답노트" sub={open.length ? '틀렸던 문제예요. 같은 문제를 2번 연속 맞히면 졸업!' : '못 외운 문제가 없어요. 멋져요! 🎉'} onClose={onClose}>
+      {open.length > 0 && <button className="btn coin" style={{ marginBottom: 10 }} onClick={start}>오답만 다시 풀기 ({Math.min(15, open.length)}문제)</button>}
+      <div style={{ maxHeight: '46vh', overflowY: 'auto' }}>
+        {open.map((n) => (
+          <div key={n.id} className="note-row">
+            <div className="q">{SUBJECTS[n.subject]?.e} {n.payload.q}{n.payload.sub ? <span style={{ color: 'var(--muted)', fontWeight: 400 }}> · {n.payload.sub}</span> : null}</div>
+            <div className="m">정답 <b style={{ color: 'var(--good)' }}>{n.payload.answer}</b> · 틀린 횟수 {n.wrong_count}번{n.streak > 0 ? ` · 연속 ${n.streak}번 맞힘` : ''}</div>
+          </div>
+        ))}
+      </div>
+      {done.length > 0 && <div className="msub" style={{ marginTop: 10, textAlign: 'center' }}>🎓 다 외운 문제 {done.length}개</div>}
+    </Sheet>
   )
 }
 

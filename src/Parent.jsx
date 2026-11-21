@@ -105,7 +105,7 @@ export default function Parent({ ctx }) {
       {sheet?.t === 'quest' && <QuestSheet kids={kids} A={A} onClose={() => setSheet(null)} />}
       {sheet?.t === 'settings' && <SettingsSheet family={data.family} A={A} onClose={() => setSheet(null)} />}
       {sheet?.t === 'preset' && <PresetQuestSheet kids={kids} quests={data.quests} A={A} onClose={() => setSheet(null)} />}
-      {sheet?.t === 'play' && <PlaySheet kid={sheet.kid} cfgs={data.quizCfg || []} attempts={data.quizAttempts || []} A={A} onClose={() => setSheet(null)} />}
+      {sheet?.t === 'play' && <PlaySheet kid={sheet.kid} cfgs={data.quizCfg || []} attempts={data.quizAttempts || []} notes={data.quizNotes || []} A={A} onClose={() => setSheet(null)} />}
       {sheet?.t === 'questedit' && <QuestEditSheet q={sheet.quest} A={A} onClose={() => setSheet(null)} />}
       {sheet?.t === 'deltx' && <DeleteTxSheet tx={sheet.tx} A={A} onClose={() => setSheet(null)} />}
       {sheet?.t === 'delinterest' && <DeleteInterestSheet tx={sheet.tx} A={A} onClose={() => setSheet(null)} />}
@@ -810,7 +810,7 @@ function DeleteInterestSheet({ tx, A, onClose }) {
 }
 
 // 🎲 놀이 퀴즈 설정: 아이×과목별로 문제 수·보상 구간·켜기/끄기. 최근 도전 기록도 함께 본다.
-function PlaySheet({ kid, cfgs, attempts, A, onClose }) {
+function PlaySheet({ kid, cfgs, attempts, notes, A, onClose }) {
   const mine = SUBJECT_ORDER.map((sj) => cfgs.find((c) => c.member_id === kid.id && c.subject === sj)).filter(Boolean)
   const [draft, setDraft] = useState(() => Object.fromEntries(mine.map((c) => [c.subject, {
     question_count: c.question_count, enabled: c.enabled,
@@ -819,6 +819,7 @@ function PlaySheet({ kid, cfgs, attempts, A, onClose }) {
   const set = (sj, patch) => setDraft((d) => ({ ...d, [sj]: { ...d[sj], ...patch } }))
   const setTier = (sj, i, patch) => set(sj, { tiers: draft[sj].tiers.map((t, j) => (j === i ? { ...t, ...patch } : t)) })
   const recent = attempts.filter((a) => a.member_id === kid.id).slice(0, 8)
+  const weak = notes.filter((n) => n.member_id === kid.id && !n.mastered).sort((a, b) => b.wrong_count - a.wrong_count).slice(0, 8)
   const go = async () => {
     for (const c of mine) {
       const d = draft[c.subject]
@@ -859,6 +860,16 @@ function PlaySheet({ kid, cfgs, attempts, A, onClose }) {
         )
       })}
       <ActionButton className="btn pri" onClick={go}>저장하기</ActionButton>
+      {weak.length > 0 && (
+        <>
+          <div className="sec-t" style={{ marginTop: 14 }}>📒 아직 못 외운 문제 <span className="cnt">{notes.filter((n) => n.member_id === kid.id && !n.mastered).length}</span></div>
+          {weak.map((n) => (
+            <div key={n.id} className="msub" style={{ margin: '4px 0' }}>
+              {SUBJECTS[n.subject]?.e} {n.payload.q}{n.payload.sub ? ` (${n.payload.sub})` : ''} → <b>{n.payload.answer}</b> · {n.wrong_count}번 틀림
+            </div>
+          ))}
+        </>
+      )}
       {recent.length > 0 && (
         <>
           <div className="sec-t" style={{ marginTop: 14 }}>최근 도전</div>

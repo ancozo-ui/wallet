@@ -6,6 +6,7 @@ export const SUBJECTS = {
   english: { e: '🔤', n: '영어 단어', desc: '초등 2학년 수준' },
   hangul: { e: '📝', n: '한글 단어', desc: '초등 1학년 수준' },
 }
+SUBJECTS.practice = { e: '📒', n: '오답 노트', desc: '틀린 문제 다시 풀기' }
 export const SUBJECT_ORDER = ['times', 'english', 'hangul']
 
 const rnd = (n) => Math.floor(Math.random() * n)
