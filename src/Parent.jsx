@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
-import { QCAT, PRESET_QUESTS, catInfo, won, stars, WEEKDAYS, allowanceWeekStart, txIcon, investBand } from './const'
-import { Sheet, Donut, Bars, InvestVine, InvestTree, ActionButton, useIdemToken, PushToggle, TxMeta } from './ui'
+import { QCAT, PRESET_QUESTS, catInfo, won, stars, WEEKDAYS, allowanceWeekStart, txIcon, investBand, fmtWhen } from './const'
+import { Sheet, Stepper, Donut, Bars, InvestVine, InvestTree, ActionButton, useIdemToken, PushToggle, TxMeta } from './ui'
+import { SUBJECTS, SUBJECT_ORDER } from './quizData'
 import * as api from './api'
 
 export default function Parent({ ctx }) {
@@ -50,7 +51,8 @@ export default function Parent({ ctx }) {
           onSettings={() => setSheet({ t: 'settings' })}
           queueCount={queueCount} onQueue={() => setTab('queue')} signOut={ctx.signOut} />}
         {tab === 'queue' && <Queue completions={completions} reqs={reqs} kmap={kmap} A={A} />}
-        {tab === 'quests' && <Quests kids={kids} quests={data.quests} onNew={() => setSheet({ t: 'quest' })}
+        {tab === 'quests' && <Quests kids={kids} quests={data.quests} quizCfg={data.quizCfg || []} attempts={data.quizAttempts || []}
+          onPlay={(k) => setSheet({ t: 'play', kid: k })} onNew={() => setSheet({ t: 'quest' })}
           onEdit={(q) => setSheet({ t: 'questedit', quest: q })} onPreset={() => setSheet({ t: 'preset' })} />}
         {tab === 'invest' && (
           <>
@@ -103,6 +105,7 @@ export default function Parent({ ctx }) {
       {sheet?.t === 'quest' && <QuestSheet kids={kids} A={A} onClose={() => setSheet(null)} />}
       {sheet?.t === 'settings' && <SettingsSheet family={data.family} A={A} onClose={() => setSheet(null)} />}
       {sheet?.t === 'preset' && <PresetQuestSheet kids={kids} quests={data.quests} A={A} onClose={() => setSheet(null)} />}
+      {sheet?.t === 'play' && <PlaySheet kid={sheet.kid} cfgs={data.quizCfg || []} attempts={data.quizAttempts || []} notes={data.quizNotes || []} A={A} onClose={() => setSheet(null)} />}
       {sheet?.t === 'questedit' && <QuestEditSheet q={sheet.quest} A={A} onClose={() => setSheet(null)} />}
       {sheet?.t === 'deltx' && <DeleteTxSheet tx={sheet.tx} A={A} onClose={() => setSheet(null)} />}
       {sheet?.t === 'delinterest' && <DeleteInterestSheet tx={sheet.tx} A={A} onClose={() => setSheet(null)} />}
@@ -273,7 +276,7 @@ function ConfirmSheet({ q, A, onClose }) {
   )
 }
 
-function Quests({ kids, quests, onNew, onEdit, onPreset }) {
+function Quests({ kids, quests, quizCfg, attempts, onPlay, onNew, onEdit, onPreset }) {
   // 아이마다 퀘스트가 십여 개라 전부 나열하면 스크롤이 길어진다. 카테고리로 접는다.
   const [openKey, setOpenKey] = useState(null)
   return (
@@ -292,6 +295,18 @@ function Quests({ kids, quests, onNew, onEdit, onPreset }) {
         return (
           <div key={k.id}>
             <div className="sec-t">{k.emoji} {k.name} <span className="cnt">{qs.length}</span></div>
+            {quizCfg.some((c) => c.member_id === k.id) && (() => {
+              const mine = quizCfg.filter((c) => c.member_id === k.id)
+              const n = attempts.filter((a) => a.member_id === k.id).length
+              return (
+                <button className="sblock" onClick={() => onPlay(k)}>
+                  <span className="em">🎲</span>
+                  <div><div className="t">놀이 퀴즈</div>
+                    <div className="d">{mine.filter((c) => c.enabled).map((c) => SUBJECTS[c.subject].n).join(' · ') || '모두 꺼짐'} · 최근 {n}번 도전</div></div>
+                  <span className="rt" style={{ color: 'var(--faint)' }}>⚙️</span>
+                </button>
+              )
+            })()}
             {qs.length === 0 && <div className="empty" style={{ padding: 18 }}>아직 퀘스트가 없어요</div>}
             {cats.map((c) => {
               const key = k.id + ':' + c
@@ -790,6 +805,82 @@ function DeleteInterestSheet({ tx, A, onClose }) {
       <div className="field" style={{ marginTop: 12 }}><label>부모 비밀번호 확인</label>
         <input type="password" value={pw} onChange={(e) => setPw(e.target.value)} placeholder="비밀번호를 한 번 더 입력" /></div>
       <button className="btn danger" disabled={busy} onClick={go}>{busy ? '확인 중…' : '삭제하기'}</button>
+    </Sheet>
+  )
+}
+
+// 🎲 놀이 퀴즈 설정: 아이×과목별로 문제 수·보상 구간·켜기/끄기. 최근 도전 기록도 함께 본다.
+function PlaySheet({ kid, cfgs, attempts, notes, A, onClose }) {
+  const mine = SUBJECT_ORDER.map((sj) => cfgs.find((c) => c.member_id === kid.id && c.subject === sj)).filter(Boolean)
+  const [draft, setDraft] = useState(() => Object.fromEntries(mine.map((c) => [c.subject, {
+    question_count: c.question_count, enabled: c.enabled,
+    tiers: (c.tiers || []).slice().sort((a, b) => a.min - b.min).map((t) => ({ ...t })),
+  }])))
+  const set = (sj, patch) => setDraft((d) => ({ ...d, [sj]: { ...d[sj], ...patch } }))
+  const setTier = (sj, i, patch) => set(sj, { tiers: draft[sj].tiers.map((t, j) => (j === i ? { ...t, ...patch } : t)) })
+  const recent = attempts.filter((a) => a.member_id === kid.id).slice(0, 8)
+  const weak = notes.filter((n) => n.member_id === kid.id && !n.mastered).sort((a, b) => b.wrong_count - a.wrong_count).slice(0, 8)
+  const go = async () => {
+    for (const c of mine) {
+      const d = draft[c.subject]
+      const tiers = d.tiers.map((t) => ({ min: Math.min(100, Math.max(1, +t.min || 0)), reward: Math.max(0, +t.reward || 0) }))
+      const ok = await A.run(() => api.updateQuizConfig(kid.id, c.subject, { question_count: d.question_count, enabled: d.enabled, tiers }))
+      if (!ok) return
+    }
+    A.toast('놀이 퀴즈 설정을 저장했어요')
+    onClose()
+  }
+  return (
+    <Sheet title={`🎲 ${kid.name}의 놀이 퀴즈`} sub="한 판의 문제 수와 점수별 보상을 정해요. 횟수 제한은 없어요." onClose={onClose}>
+      {mine.map((c) => {
+        const d = draft[c.subject]
+        const sj = SUBJECTS[c.subject]
+        return (
+          <div key={c.subject} className="field" style={{ background: 'var(--surface-2)', borderRadius: 14, padding: 12 }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 15 }}>{sj.e} {sj.n}</span>
+              <span style={{ color: 'var(--faint)', fontWeight: 400 }}>{sj.desc}</span>
+              <button type="button" className={'btn sm ' + (d.enabled ? 'pri' : 'line')} style={{ marginLeft: 'auto' }}
+                onClick={() => set(c.subject, { enabled: !d.enabled })}>{d.enabled ? '켜짐' : '꺼짐'}</button>
+            </label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+              <span className="msub" style={{ margin: 0 }}>문제 수</span>
+              <Stepper value={d.question_count} min={5} step={5} max={60} format={(v) => `${v}문제`}
+                onChange={(v) => set(c.subject, { question_count: v })} />
+            </div>
+            {d.tiers.map((t, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, fontSize: 13 }}>
+                <input type="number" inputMode="numeric" value={t.min} style={{ width: 64, padding: 8 }}
+                  onChange={(e) => setTier(c.subject, i, { min: e.target.value })} />점 이상
+                <input type="number" inputMode="numeric" value={t.reward} style={{ width: 78, padding: 8 }}
+                  onChange={(e) => setTier(c.subject, i, { reward: e.target.value })} />원
+              </div>
+            ))}
+          </div>
+        )
+      })}
+      <ActionButton className="btn pri" onClick={go}>저장하기</ActionButton>
+      {weak.length > 0 && (
+        <>
+          <div className="sec-t" style={{ marginTop: 14 }}>📒 아직 못 외운 문제 <span className="cnt">{notes.filter((n) => n.member_id === kid.id && !n.mastered).length}</span></div>
+          {weak.map((n) => (
+            <div key={n.id} className="msub" style={{ margin: '4px 0' }}>
+              {SUBJECTS[n.subject]?.e} {n.payload.q}{n.payload.sub ? ` (${n.payload.sub})` : ''} → <b>{n.payload.answer}</b> · {n.wrong_count}번 틀림
+            </div>
+          ))}
+        </>
+      )}
+      {recent.length > 0 && (
+        <>
+          <div className="sec-t" style={{ marginTop: 14 }}>최근 도전</div>
+          {recent.map((a) => (
+            <div key={a.id} className="msub tnum" style={{ margin: '4px 0' }}>
+              {fmtWhen(a.created_at)} · {SUBJECTS[a.subject]?.n || a.subject} {a.correct}/{a.total} · {Math.floor(a.seconds / 60)}분 {a.seconds % 60}초 ·{' '}
+              {a.reward > 0 ? `+${won(a.reward)}원` : '보상 없음'}
+            </div>
+          ))}
+        </>
+      )}
     </Sheet>
   )
 }
