@@ -234,7 +234,8 @@ function Round({ cfg, ctx, onClose, onAgain }) {
             </div>
           </>
         )}
-        {fb && <div className={'quiz-fb ' + (fb.ok ? 'ok' : 'no')}>{fb.ok ? '정답! 👏' : '아쉬워요 😅'}</div>}
+        {/* 자리를 항상 차지해서 '정답/아쉬워요'가 나타나도 화면이 흔들리지 않는다 */}
+        <div className={'quiz-fb ' + (fb ? (fb.ok ? 'ok' : 'no') : 'idle')}>{fb ? (fb.ok ? '정답! 👏' : '아쉬워요 😅') : '·'}</div>
       </div>
 
       {confirmExit && (

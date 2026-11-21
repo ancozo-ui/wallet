@@ -818,6 +818,7 @@ function PlaySheet({ kid, cfgs, attempts, notes, A, onClose }) {
   }])))
   const set = (sj, patch) => setDraft((d) => ({ ...d, [sj]: { ...d[sj], ...patch } }))
   const setTier = (sj, i, patch) => set(sj, { tiers: draft[sj].tiers.map((t, j) => (j === i ? { ...t, ...patch } : t)) })
+  const [confirmClear, setConfirmClear] = useState(false)
   const recent = attempts.filter((a) => a.member_id === kid.id).slice(0, 8)
   const weak = notes.filter((n) => n.member_id === kid.id && !n.mastered).sort((a, b) => b.wrong_count - a.wrong_count).slice(0, 8)
   const go = async () => {
@@ -860,6 +861,26 @@ function PlaySheet({ kid, cfgs, attempts, notes, A, onClose }) {
         )
       })}
       <ActionButton className="btn pri" onClick={go}>저장하기</ActionButton>
+      {notes.some((n) => n.member_id === kid.id) && (
+        <div style={{ marginTop: 10 }}>
+          {!confirmClear ? (
+            <button className="btn line" style={{ color: 'var(--danger)' }} onClick={() => setConfirmClear(true)}>
+              📒 오답노트 초기화 ({notes.filter((n) => n.member_id === kid.id).length}개)
+            </button>
+          ) : (
+            <div className="field" style={{ background: 'var(--danger-soft)', borderRadius: 14, padding: 12 }}>
+              <div className="msub" style={{ margin: '0 0 8px' }}>{kid.name}의 오답노트를 모두 지울까요? 못 외운 문제와 다 외운 기록이 모두 사라지고 되돌릴 수 없어요.</div>
+              <div className="btn-row">
+                <button className="btn line" onClick={() => setConfirmClear(false)}>취소</button>
+                <ActionButton className="btn danger" onClick={async () => {
+                  const ok = await A.run(() => api.clearQuizNotes(kid.id), '오답노트를 초기화했어요')
+                  if (ok) onClose()
+                }}>초기화</ActionButton>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
       {weak.length > 0 && (
         <>
           <div className="sec-t" style={{ marginTop: 14 }}>📒 아직 못 외운 문제 <span className="cnt">{notes.filter((n) => n.member_id === kid.id && !n.mastered).length}</span></div>

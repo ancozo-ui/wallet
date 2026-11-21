@@ -145,6 +145,11 @@ export const ackFine = (id) => rpc('acknowledge_fine', { p_request: id, p_token:
 // 투자하기 — 승인 필요 없이 즉시 반영(자기 돈을 투자하는 걸 막을 이유는 없음)
 export const investDeposit = (amount, token) => rpc('invest_deposit', { p_amount: amount, p_token: token || tok() })
 // 🎲 놀이 퀴즈 — 끝난 판의 점수를 알리면 서버가 구간표대로 보상을 계산해 바로 지급하고 보상액을 돌려준다.
+// 부모: 아이의 오답노트 전체 초기화
+export async function clearQuizNotes(memberId) {
+  const { error } = await supabase.from('quiz_notes').delete().eq('member_id', memberId)
+  if (error) throw error
+}
 export const quizNoteSave = (items) => rpc('quiz_note_save', { p_items: items })
 export const quizFinish = (subject, correct, total, seconds, token) =>
   rpc('quiz_finish', { p_subject: subject, p_correct: correct, p_total: total, p_seconds: seconds, p_token: token || tok() })
