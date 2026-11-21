@@ -50,6 +50,7 @@ export const catInfo = c => CATS[c] || { e:'💸', n:c || '지출' }
 export const stars = n => '★★★'.slice(0, n) + '☆☆☆'.slice(0, 3 - n)
 
 export function txIcon(t){
+  if (t.grp === 'income' && t.category === 'quiz') return ['🎲','ic-quest']
   if (t.grp === 'income') return t.category === 'quest' ? ['🏆','ic-quest'] : ['🎁','ic-give']
   if (t.grp === 'fine') return ['⚠️','ic-fine']
   if (t.grp === 'transfer') return ['💌','ic-tr']

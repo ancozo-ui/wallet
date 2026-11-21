@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { CATS, BUY_CATS, QCAT, txIcon, won } from './const'
 import { Sheet, Stepper, Stars, ActionButton, useIdemToken, PushToggle, TxMeta } from './ui'
 import { QuestCard, Stats, Invest } from './Parent'
+import Quiz, { tierText } from './Quiz'
+import { SUBJECTS, SUBJECT_ORDER } from './quizData'
 import * as api from './api'
 
 // 돈이 모자랄 때 아이에게 보여줄 안내. 마이너스면 '채워야 한다'는 걸 먼저 알려준다.
@@ -98,6 +100,7 @@ export default function Child({ ctx }) {
           onTime={(k) => (blocked ? guide() : setSheet({ t: 'time', kind: k }))}
           onBuy={(c) => (blocked ? guide() : setSheet({ t: 'buy', cat: c }))} />}
         {tab === 'quests' && <Quests quests={data.quests} run={run}
+          quizCfg={data.quizCfg || []} attempts={data.quizAttempts || []} onPlay={(c) => setSheet({ t: 'quiz', cfg: c })}
           onSubmit={(q) => setSheet({ t: 'submit', q })} onCancel={(q) => setSheet({ t: 'cancel', q })}
           onPropose={() => setSheet({ t: 'propose' })} />}
         {tab === 'invest' && <Invest kid={me} tx={data.investTx || []} ticks={data.investTicks || []}
@@ -115,6 +118,7 @@ export default function Child({ ctx }) {
       {sheet?.t === 'send' && <SendSheet me={me} available={available} siblings={data.siblings} ctx={ctx} onClose={() => setSheet(null)} />}
       {sheet?.t === 'time' && <TimeSheet me={me} available={available} kind={sheet.kind} ctx={ctx} onClose={() => setSheet(null)} />}
       {sheet?.t === 'buy' && <BuySheet me={me} available={available} cat={sheet.cat} ctx={ctx} onClose={() => setSheet(null)} />}
+      {sheet?.t === 'quiz' && <Quiz cfg={sheet.cfg} ctx={ctx} onClose={() => setSheet(null)} />}
       {sheet?.t === 'cancel' && <CancelSheet q={sheet.q} ctx={ctx} onClose={() => setSheet(null)} />}
       {sheet?.t === 'submit' && <SubmitSheet q={sheet.q} ctx={ctx} onClose={() => setSheet(null)} />}
       {sheet?.t === 'propose' && <ProposeSheet me={me} ctx={ctx} onClose={() => setSheet(null)} />}
@@ -227,7 +231,7 @@ function Spend({ me, available, reserved, blocked, onGoQuests, onTime, onBuy }) 
   )
 }
 
-function Quests({ quests, run, onSubmit, onCancel, onPropose }) {
+function Quests({ quests, run, quizCfg, attempts, onPlay, onSubmit, onCancel, onPropose }) {
   const [openCat, setOpenCat] = useState(null)
   // 지금 하는 중인 건 항상 펼쳐 두고, 나머지는 카테고리로 접어 스크롤을 줄인다.
   const active = quests.filter((q) => q.status === 'prog' || q.status === 'done_sub')
@@ -244,12 +248,14 @@ function Quests({ quests, run, onSubmit, onCancel, onPropose }) {
         <button className="btn coin sm" onClick={onPropose}>✋ 제안하기</button>
       </div>
 
+      <PlayCards quizCfg={quizCfg} attempts={attempts} onPlay={onPlay} />
+
       {active.length > 0 && <div className="sec-t">🔥 지금 하는 중 <span className="cnt">{active.length}</span></div>}
       {active.map((q) => (
         <QuestCard key={q.id} q={q} child onApply={apply} onSubmit={onSubmit} onCancel={onCancel} />
       ))}
 
-      {active.length === 0 && cats.length === 0 && (
+      {active.length === 0 && cats.length === 0 && quizCfg.length === 0 && (
         <div className="empty"><span className="e">🗺️</span>아직 퀘스트가 없어요<br />하고 싶은 일을 제안해 보세요!</div>
       )}
 
@@ -269,6 +275,33 @@ function Quests({ quests, run, onSubmit, onCancel, onPropose }) {
               <QuestCard key={q.id} q={q} child onApply={apply} onSubmit={onSubmit} onCancel={onCancel} />
             ))}
           </div>
+        )
+      })}
+    </>
+  )
+}
+
+// 🎲 놀이 — 끝까지 풀면 점수에 따라 용돈이 바로 나오는 퀴즈
+function PlayCards({ quizCfg, attempts, onPlay }) {
+  const list = SUBJECT_ORDER.map((sj) => quizCfg.find((c) => c.subject === sj && c.enabled)).filter(Boolean)
+  if (!list.length) return null
+  const today = new Date().toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' })
+  return (
+    <>
+      <div className="sec-t">🎲 놀이 <span className="cnt">{list.length}</span></div>
+      {list.map((c) => {
+        const sj = SUBJECTS[c.subject]
+        const todayN = attempts.filter((a) => a.subject === c.subject
+          && new Date(a.created_at).toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' }) === today).length
+        return (
+          <button key={c.subject} className="play-card" onClick={() => onPlay(c)}>
+            <span className="em">{sj.e}</span>
+            <div>
+              <div className="t">{sj.n} 퀴즈 · {c.question_count}문제</div>
+              <div className="d">{tierText(c.tiers)}{todayN ? ` · 오늘 ${todayN}번 도전` : ''}</div>
+            </div>
+            <span className="go">도전</span>
+          </button>
         )
       })}
     </>

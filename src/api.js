@@ -20,7 +20,7 @@ export const createFamily = (name, parentName) =>
 // ---- 데이터 로드 ----
 export async function loadParent() {
   await expireQuests()
-  const [family, kids, tx, quests, requests, investTx, investTicks] = await Promise.all([
+  const [family, kids, tx, quests, requests, investTx, investTicks, quizCfg, quizAttempts] = await Promise.all([
     supabase.from('families').select('*').limit(1).maybeSingle(),
     supabase.from('members').select('*').eq('role', 'child').order('sort').order('created_at'),
     supabase.from('transactions').select('*').order('created_at', { ascending: false }),
@@ -28,16 +28,19 @@ export async function loadParent() {
     supabase.from('requests').select('*').eq('status', 'pending').order('created_at'),
     supabase.from('invest_transactions').select('*').order('created_at', { ascending: false }),
     supabase.from('invest_ticks').select('*').order('window_start', { ascending: false }),
+    supabase.from('quiz_config').select('*'),
+    supabase.from('quiz_attempts').select('*').order('created_at', { ascending: false }).limit(60),
   ])
-  for (const r of [family, kids, tx, quests, requests, investTx, investTicks]) if (r.error) throw r.error
+  for (const r of [family, kids, tx, quests, requests, investTx, investTicks, quizCfg, quizAttempts]) if (r.error) throw r.error
   return {
     family: family.data, kids: kids.data, tx: tx.data, quests: quests.data, requests: requests.data,
     investTx: investTx.data, investTicks: investTicks.data,
+    quizCfg: quizCfg.data, quizAttempts: quizAttempts.data,
   }
 }
 export async function loadChild(memberId) {
   await expireQuests()
-  const [family, me, tx, quests, fines, mypend, sibs, investTx, investTicks] = await Promise.all([
+  const [family, me, tx, quests, fines, mypend, sibs, investTx, investTicks, quizCfg, quizAttempts] = await Promise.all([
     supabase.from('families').select('*').limit(1).maybeSingle(),
     supabase.from('members').select('*').eq('id', memberId).single(),
     supabase.from('transactions').select('*').eq('member_id', memberId).order('created_at', { ascending: false }),
@@ -48,12 +51,15 @@ export async function loadChild(memberId) {
     supabase.rpc('list_siblings'),
     supabase.from('invest_transactions').select('*').eq('member_id', memberId).order('created_at', { ascending: false }),
     supabase.from('invest_ticks').select('*').order('window_start', { ascending: false }),
+    supabase.from('quiz_config').select('*').eq('member_id', memberId),
+    supabase.from('quiz_attempts').select('*').eq('member_id', memberId).order('created_at', { ascending: false }).limit(30),
   ])
-  for (const r of [family, me, tx, quests, fines, mypend, sibs, investTx, investTicks]) if (r.error) throw r.error
+  for (const r of [family, me, tx, quests, fines, mypend, sibs, investTx, investTicks, quizCfg, quizAttempts]) if (r.error) throw r.error
   return {
     family: family.data, me: me.data, tx: tx.data, quests: quests.data, fines: fines.data,
     myPending: mypend.data || [], siblings: sibs.data || [],
     investTx: investTx.data, investTicks: investTicks.data,
+    quizCfg: quizCfg.data, quizAttempts: quizAttempts.data,
   }
 }
 export async function updateFamily(id, fields) {
@@ -136,6 +142,13 @@ export async function addChild({ name, emoji, rate, loginId, pin }) {
 export const ackFine = (id) => rpc('acknowledge_fine', { p_request: id, p_token: tok() })
 // 투자하기 — 승인 필요 없이 즉시 반영(자기 돈을 투자하는 걸 막을 이유는 없음)
 export const investDeposit = (amount, token) => rpc('invest_deposit', { p_amount: amount, p_token: token || tok() })
+// 🎲 놀이 퀴즈 — 끝난 판의 점수를 알리면 서버가 구간표대로 보상을 계산해 바로 지급하고 보상액을 돌려준다.
+export const quizFinish = (subject, correct, total, seconds, token) =>
+  rpc('quiz_finish', { p_subject: subject, p_correct: correct, p_total: total, p_seconds: seconds, p_token: token || tok() })
+export async function updateQuizConfig(memberId, subject, fields) {
+  const { error } = await supabase.from('quiz_config').update(fields).eq('member_id', memberId).eq('subject', subject)
+  if (error) throw error
+}
 export const applyQuest = (id) => rpc('apply_quest', { p_quest: id })
 export const cancelQuest = (id) => rpc('cancel_quest', { p_quest: id })
 export const submitQuest = (id, qty, diff) => rpc('submit_quest', { p_quest: id, p_qty: qty, p_diff: diff })
@@ -158,7 +171,7 @@ export async function createRequest(familyId, memberId, payload) {
 // ---- 실시간 ----
 export function subscribeFamily(onChange) {
   const ch = supabase.channel('family-changes')
-  for (const table of ['members', 'transactions', 'quests', 'requests', 'invest_transactions', 'invest_ticks']) {
+  for (const table of ['members', 'transactions', 'quests', 'requests', 'invest_transactions', 'invest_ticks', 'quiz_config']) {
     ch.on('postgres_changes', { event: '*', schema: 'public', table }, onChange)
   }
   ch.subscribe()
